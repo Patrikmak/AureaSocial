@@ -2,7 +2,8 @@
 
 import React from 'react';
 import BottomNav from '@/components/layout/BottomNav';
-import { Settings, Grid, Bookmark, MapPin } from 'lucide-react';
+import { Settings as SettingsIcon, Grid, Bookmark, MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Profile = () => {
   const stats = [
@@ -24,7 +25,9 @@ const Profile = () => {
     <div className="min-h-screen bg-[#050505] text-white pb-32">
       <header className="px-6 py-6 flex justify-between items-center">
         <h1 className="text-xl font-bold">@seu_perfil</h1>
-        <Settings size={24} className="text-gray-400" />
+        <Link to="/settings" className="p-2 hover:bg-white/5 rounded-full transition-colors">
+          <SettingsIcon size={24} className="text-gray-400" />
+        </Link>
       </header>
 
       <main>

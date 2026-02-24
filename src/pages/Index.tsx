@@ -5,6 +5,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import StoryBar from '@/components/feed/StoryBar';
 import VibeCard from '@/components/feed/VibeCard';
 import { Bell, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   const posts = [
@@ -37,10 +38,10 @@ const Index = () => {
           </h1>
         </div>
         <div className="flex gap-4">
-          <button className="relative p-2 hover:bg-white/5 rounded-full transition-colors">
+          <Link to="/notifications" className="relative p-2 hover:bg-white/5 rounded-full transition-colors">
             <Bell size={22} />
             <span className="absolute top-2 right-2 w-2 h-2 bg-violet-500 rounded-full border-2 border-black" />
-          </button>
+          </Link>
         </div>
       </header>
 
