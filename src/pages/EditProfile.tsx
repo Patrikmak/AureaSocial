@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Camera, Music, Link as LinkIcon, User, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,8 @@ const EditProfile = () => {
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -54,12 +56,62 @@ const EditProfile = () => {
           gender: data.gender || '',
           links: data.links ? data.links.join(', ') : ''
         });
+        if (data.avatar_url) setImagePreview(data.avatar_url);
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type and size
+    if (!file.type.match('image/*')) {
+      showError('Por favor, selecione um arquivo de imagem.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      showError('A imagem não pode ser maior que 5MB.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      
+      // Upload to Supabase Storage
+      const filePath = `profile/${session.user.id}/${Date.now()}_${file.name}`;
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update form data and preview
+      const newAvatarUrl = publicUrlData.publicUrl; // Fixed property name
+      setFormData(prev => ({ ...prev, avatar_url: newAvatarUrl }));
+      setImagePreview(newAvatarUrl);
+      
+    } catch (error) {
+      console.error('Erro ao fazer upload da imagem:', error);
+      showError('Erro ao atualizar foto de perfil.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleSave = async () => {
@@ -115,23 +167,49 @@ const EditProfile = () => {
       </header>
 
       <main className="px-6 py-8 max-w-md mx-auto space-y-8">
-        {/* Foto de Perfil */}
+        {/* Photo Upload Section */}
         <div className="flex flex-col items-center gap-4">
-          <div className="relative group">
+          <div className="relative group w-full max-w-24">
             <div className="p-1 rounded-full bg-gradient-to-tr from-violet-600 to-cyan-400">
-              <img 
-                src={formData.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"} 
-                className="w-32 h-32 rounded-full object-cover border-4 border-black" 
-                alt="Profile" 
-              />
+              {imagePreview ? (
+                <img 
+                  src={imagePreview} 
+                  className="w-24 h-24 rounded-full object-cover border-4 border-black" 
+                  alt="Profile" 
+                  onClick={handleImageClick}
+                />
+              ) : (
+                <img 
+                  src={formData.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"} 
+                  className="w-24 h-24 rounded-full object-cover border-4 border-black" 
+                  alt="Profile" 
+                  onClick={handleImageClick}
+                />
+              )}
             </div>
-            <button className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <button 
+              type="button" 
+              className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Camera size={32} className="text-white" />
             </button>
           </div>
-          <p className="text-xs text-gray-500">Toque para alterar a foto</p>
+          
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleImageChange}
+          />
+          
+          {imagePreview && (
+            <p className="text-xs text-gray-500">Toque na foto para trocar</p>
+          )}
         </div>
 
+        {/* Form Fields */}
         <div className="space-y-6">
           {/* Nome */}
           <div className="space-y-2">
