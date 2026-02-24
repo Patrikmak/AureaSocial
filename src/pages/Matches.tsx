@@ -1,17 +1,76 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import BottomNav from '@/components/layout/BottomNav';
-import { X, Heart, Star, Undo2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { X, Heart, Star, Undo2, MessageCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import ChatSheet from '@/components/chat/ChatSheet';
 
 const Matches = () => {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const usersByUsername = useMemo(
+    () => ({
+      sophia: {
+        username: 'sophia',
+        name: 'Sophia',
+        avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200',
+      },
+      'luna.estelar': {
+        username: 'luna.estelar',
+        name: 'Luna Estelar',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
+      },
+      'alex.rivera': {
+        username: 'alex.rivera',
+        name: 'Alex Rivera',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+      },
+      'marcos.vini': {
+        username: 'marcos.vini',
+        name: 'Marcos Vini',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
+      },
+    }),
+    []
+  );
+
+  const chatUsername = searchParams.get('chat');
+  const chatUser = chatUsername ? (usersByUsername as any)[chatUsername] ?? null : null;
+
+  useEffect(() => {
+    if (!chatUsername) return;
+    setChatOpen(true);
+  }, [chatUsername]);
+
+  useEffect(() => {
+    if (chatOpen) return;
+    if (!chatUsername) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('chat');
+      return next;
+    });
+  }, [chatOpen, chatUsername, setSearchParams]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32 overflow-hidden">
       <header className="px-6 py-6 flex justify-between items-center">
         <h1 className="text-2xl font-black tracking-tight">DESCUBRA</h1>
-        <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-          <Star size={20} className="text-yellow-500" />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setChatOpen(true)}
+            className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+            aria-label="Abrir mensagens"
+          >
+            <MessageCircle size={18} className="text-cyan-300" />
+          </button>
+          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+            <Star size={20} className="text-yellow-500" />
+          </div>
         </div>
       </header>
 
@@ -23,6 +82,11 @@ const Matches = () => {
             dragConstraints={{ left: 0, right: 0 }}
             className="absolute inset-0 bg-gradient-to-b from-gray-800 to-gray-900 rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing"
           >
+            <button
+              onClick={() => navigate(`/profile/${encodeURIComponent('sophia')}`)}
+              className="absolute inset-0"
+              aria-label="Abrir perfil"
+            />
             <img 
               src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800" 
               className="w-full h-full object-cover pointer-events-none" 
@@ -60,6 +124,8 @@ const Matches = () => {
           <Star size={24} fill="currentColor" />
         </button>
       </div>
+
+      <ChatSheet open={chatOpen} onOpenChange={setChatOpen} user={chatUser ?? usersByUsername.sophia} />
 
       <BottomNav />
     </div>

@@ -9,10 +9,54 @@ const Notifications = () => {
   const navigate = useNavigate();
   
   const notifications = [
-    { id: 1, type: 'like', user: 'Luna Estelar', content: 'curtiu sua foto.', time: '2m', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
-    { id: 2, type: 'match', user: 'Sophia', content: 'Novo match! Diga oi.', time: '1h', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100' },
-    { id: 3, type: 'comment', user: 'Alex Rivera', content: 'comentou: "Incrível! 🔥"', time: '3h', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100' },
-  ];
+    {
+      id: 1,
+      type: 'like',
+      user: { name: 'Luna Estelar', username: 'luna.estelar' },
+      content: 'curtiu sua foto.',
+      time: '2m',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+      postId: '1',
+    },
+    {
+      id: 2,
+      type: 'match',
+      user: { name: 'Sophia', username: 'sophia' },
+      content: 'Novo match! Diga oi.',
+      time: '1h',
+      avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100',
+    },
+    {
+      id: 3,
+      type: 'comment',
+      user: { name: 'Alex Rivera', username: 'alex.rivera' },
+      content: 'comentou: "Incrível! 🔥"',
+      time: '3h',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      postId: '1',
+      commentId: 'c1',
+    },
+  ] as const;
+
+  const onOpenUser = (username: string) => {
+    navigate(`/profile/${encodeURIComponent(username)}`);
+  };
+
+  const onOpenNotification = (notif: (typeof notifications)[number]) => {
+    if (notif.type === 'like' && notif.postId) {
+      navigate(`/post/${encodeURIComponent(notif.postId)}`);
+      return;
+    }
+    if (notif.type === 'comment' && notif.postId && notif.commentId) {
+      navigate(`/post/${encodeURIComponent(notif.postId)}?comment=${encodeURIComponent(notif.commentId)}`);
+      return;
+    }
+    if (notif.type === 'match') {
+      // Open chat inside Descubra
+      navigate(`/matches?chat=${encodeURIComponent(notif.user.username)}`);
+      return;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32">
@@ -26,14 +70,29 @@ const Notifications = () => {
       <main className="px-4 py-6">
         <div className="space-y-6">
           {notifications.map((notif) => (
-            <div key={notif.id} className="flex items-center gap-4 p-2 hover:bg-white/5 rounded-2xl transition-colors">
-              <img src={notif.avatar} className="w-12 h-12 rounded-full object-cover" alt="" />
-              <div className="flex-1">
+            <div
+              key={notif.id}
+              className="flex items-center gap-4 p-2 hover:bg-white/5 rounded-2xl transition-colors"
+            >
+              <button
+                onClick={() => onOpenUser(notif.user.username)}
+                className="shrink-0"
+                aria-label={`Abrir perfil de ${notif.user.name}`}
+              >
+                <img src={notif.avatar} className="w-12 h-12 rounded-full object-cover" alt="" />
+              </button>
+
+              <button
+                className="flex-1 text-left"
+                onClick={() => onOpenNotification(notif)}
+                aria-label="Abrir notificação"
+              >
                 <p className="text-sm">
-                  <span className="font-bold">{notif.user}</span> {notif.content}
+                  <span className="font-bold">{notif.user.name}</span> {notif.content}
                 </p>
                 <span className="text-[10px] text-gray-500">{notif.time}</span>
-              </div>
+              </button>
+
               <div className="w-8 h-8 flex items-center justify-center">
                 {notif.type === 'like' && <Heart size={16} className="text-red-500" fill="currentColor" />}
                 {notif.type === 'match' && <UserPlus size={16} className="text-violet-500" />}
