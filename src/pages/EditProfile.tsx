@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { showSuccess, showError } from '@/utils/toast';
+import SpotifySearch from '../components/profile/SpotifySearch';
 
 const EditProfile = () => {
   const navigate = useNavigate();
@@ -190,16 +191,14 @@ const EditProfile = () => {
             </Select>
           </div>
 
-          {/* Música Favorita */}
+          {/* Música Favorita (Spotify Search) */}
           <div className="space-y-2">
             <Label className="text-gray-400 flex items-center gap-2">
-              <Music size={14} /> Música Preferida
+              <Music size={14} /> Música Preferida (Spotify)
             </Label>
-            <Input 
-              value={formData.favorite_music}
-              onChange={(e) => setFormData({...formData, favorite_music: e.target.value})}
-              placeholder="Artista - Música"
-              className="bg-white/5 border-white/10 rounded-xl focus:ring-violet-500"
+            <SpotifySearch 
+              initialValue={formData.favorite_music}
+              onSelect={(trackName) => setFormData({...formData, favorite_music: trackName})}
             />
           </div>
 
