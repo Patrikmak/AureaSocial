@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 const stories = [
   { id: 1, name: 'Seu Story', img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop', isUser: true },
