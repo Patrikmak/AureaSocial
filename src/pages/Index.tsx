@@ -33,7 +33,7 @@ const Index = () => {
             <Sparkles size={18} className="text-white" />
           </div>
           <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
-            LUME
+            Aurēa
           </h1>
         </div>
         <div className="flex gap-4">
