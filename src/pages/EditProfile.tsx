@@ -19,7 +19,7 @@ const EditProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -65,53 +65,64 @@ const EditProfile = () => {
     }
   };
 
-  const handleImageChange = async (e) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !session?.user) return;
 
-    // Validate file type and size
     if (!file.type.match('image/*')) {
       showError('Por favor, selecione um arquivo de imagem.');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (file.size > 5 * 1024 * 1024) {
       showError('A imagem não pode ser maior que 5MB.');
       return;
     }
 
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg';
+    const filePath = `profile/${session.user.id}/${Date.now()}.${safeExt}`;
+
     try {
       setSaving(true);
-      
-      // Upload to Supabase Storage
-      const filePath = `profile/${session.user.id}/${Date.now()}_${file.name}`;
-      const { data: uploadData, error: uploadError } = await supabase
+
+      const { error: uploadError } = await supabase
         .storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true, contentType: file.type });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: publicUrlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Update form data and preview
-      const newAvatarUrl = publicUrlData.publicUrl; // Fixed property name
+      const newAvatarUrl = publicUrlData.publicUrl;
+
+      // If user selects the same file again, we still want onChange to fire.
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
       setFormData(prev => ({ ...prev, avatar_url: newAvatarUrl }));
       setImagePreview(newAvatarUrl);
-      
+
+      // Save immediately so the profile page updates without needing to press "Salvar".
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: session.user.id,
+          avatar_url: newAvatarUrl,
+          updated_at: new Date().toISOString()
+        });
+
+      if (profileError) throw profileError;
+
+      showSuccess('Foto de perfil atualizada!');
     } catch (error) {
       console.error('Erro ao fazer upload da imagem:', error);
       showError('Erro ao atualizar foto de perfil.');
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleImageClick = () => {
-    fileInputRef.current?.click();
   };
 
   const handleSave = async () => {
@@ -171,42 +182,36 @@ const EditProfile = () => {
         <div className="flex flex-col items-center gap-4">
           <div className="relative group w-full max-w-24">
             <div className="p-1 rounded-full bg-gradient-to-tr from-violet-600 to-cyan-400">
-              {imagePreview ? (
-                <img 
-                  src={imagePreview} 
-                  className="w-24 h-24 rounded-full object-cover border-4 border-black" 
-                  alt="Profile" 
-                  onClick={handleImageClick}
-                />
-              ) : (
-                <img 
-                  src={formData.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"} 
-                  className="w-24 h-24 rounded-full object-cover border-4 border-black" 
-                  alt="Profile" 
-                  onClick={handleImageClick}
-                />
-              )}
+              <img 
+                src={imagePreview || formData.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"} 
+                className="w-24 h-24 rounded-full object-cover border-4 border-black" 
+                alt="Profile" 
+              />
             </div>
-            <button 
-              type="button" 
-              className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
+
+            <label
+              htmlFor="avatarUpload"
+              className={
+                "absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-100 transition-opacity cursor-pointer " +
+                (saving ? 'pointer-events-none' : 'group-hover:opacity-100')
+              }
+              aria-label="Trocar foto"
+              title="Trocar foto"
             >
               <Camera size={32} className="text-white" />
-            </button>
+            </label>
           </div>
           
           <input
+            id="avatarUpload"
             type="file"
             accept="image/*"
             ref={fileInputRef}
             className="hidden"
             onChange={handleImageChange}
           />
-          
-          {imagePreview && (
-            <p className="text-xs text-gray-500">Toque na foto para trocar</p>
-          )}
+
+          <p className="text-xs text-gray-500">Toque na câmera para escolher qualquer imagem</p>
         </div>
 
         {/* Form Fields */}
