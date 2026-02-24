@@ -75,10 +75,12 @@ const Profile = () => {
             </span>
           )}
 
-          <div className="flex items-center gap-1 text-gray-400 text-xs mb-4">
-            <MapPin size={12} />
-            <span>Lisboa, Portugal</span>
-          </div>
+          {profile?.location && (
+            <div className="flex items-center gap-1 text-gray-400 text-xs mb-4">
+              <MapPin size={12} />
+              <span>{profile.location}</span>
+            </div>
+          )}
           
           <p className="text-sm text-gray-300 max-w-xs mb-4">
             {profile?.bio || 'Criando conexões reais através da arte e tecnologia. 🚀✨'}

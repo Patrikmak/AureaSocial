@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Camera, Music, Link as LinkIcon, User, Info } from 'lucide-react';
+import { ChevronLeft, Camera, Music, Link as LinkIcon, User, Info, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ const EditProfile = () => {
     avatar_url: '',
     favorite_music: '',
     gender: '',
+    location: '',
     links: ''
   });
 
@@ -54,6 +55,7 @@ const EditProfile = () => {
           avatar_url: data.avatar_url || '',
           favorite_music: data.favorite_music || '',
           gender: data.gender || '',
+          location: data.location || '',
           links: data.links ? data.links.join(', ') : ''
         });
         if (data.avatar_url) setImagePreview(data.avatar_url);
@@ -99,13 +101,11 @@ const EditProfile = () => {
 
       const newAvatarUrl = publicUrlData.publicUrl;
 
-      // If user selects the same file again, we still want onChange to fire.
       if (fileInputRef.current) fileInputRef.current.value = '';
 
       setFormData(prev => ({ ...prev, avatar_url: newAvatarUrl }));
       setImagePreview(newAvatarUrl);
 
-      // Save immediately so the profile page updates without needing to press "Salvar".
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -140,6 +140,7 @@ const EditProfile = () => {
           avatar_url: formData.avatar_url,
           favorite_music: formData.favorite_music,
           gender: formData.gender,
+          location: formData.location,
           links: linksArray,
           updated_at: new Date().toISOString()
         });
@@ -238,6 +239,19 @@ const EditProfile = () => {
               value={formData.username}
               onChange={(e) => setFormData({...formData, username: e.target.value})}
               placeholder="username"
+              className="bg-white/5 border-white/10 rounded-xl focus:ring-violet-500"
+            />
+          </div>
+
+          {/* Localização */}
+          <div className="space-y-2">
+            <Label className="text-gray-400 flex items-center gap-2">
+              <MapPin size={14} /> Localização
+            </Label>
+            <Input
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              placeholder="Ex: Lisboa, Portugal"
               className="bg-white/5 border-white/10 rounded-xl focus:ring-violet-500"
             />
           </div>
