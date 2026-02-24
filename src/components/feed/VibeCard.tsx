@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface VibeCardProps {
+  id: string | number;
   user: {
     name: string;
     avatar: string;
@@ -35,17 +38,70 @@ function formatCompactCount(n: number) {
   return `${n}`;
 }
 
-const VibeCard = ({ user, image, caption, likes }: VibeCardProps) => {
+const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
+  const { session } = useAuth();
+  const postId = String(id);
+
   const initialLikes = useMemo(() => parseCompactCount(likes), [likes]);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikes);
+  const [hydrated, setHydrated] = useState(false);
 
-  const toggleLike = () => {
-    setLiked((prev) => {
-      const next = !prev;
-      setLikesCount((c) => c + (next ? 1 : -1));
-      return next;
-    });
+  useEffect(() => {
+    if (!session?.user) return;
+
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('post_likes')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('post_id', postId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setLiked(Boolean(data));
+      setHydrated(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user, postId]);
+
+  const toggleLike = async () => {
+    if (!session?.user) return;
+
+    // Optimistic UI
+    const next = !liked;
+    setLiked(next);
+    setLikesCount((c) => c + (next ? 1 : -1));
+
+    if (next) {
+      const { error } = await supabase.from('post_likes').insert({
+        user_id: session.user.id,
+        post_id: postId,
+      });
+
+      if (error) {
+        // rollback
+        setLiked(false);
+        setLikesCount((c) => c - 1);
+      }
+      return;
+    }
+
+    const { error } = await supabase
+      .from('post_likes')
+      .delete()
+      .eq('user_id', session.user.id)
+      .eq('post_id', postId);
+
+    if (error) {
+      // rollback
+      setLiked(true);
+      setLikesCount((c) => c + 1);
+    }
   };
 
   return (
@@ -81,6 +137,7 @@ const VibeCard = ({ user, image, caption, likes }: VibeCardProps) => {
               (liked ? "text-rose-300 bg-rose-500/15" : "text-white hover:bg-rose-500/20 hover:text-rose-300")
             }
             aria-label={liked ? 'Descurtir' : 'Curtir'}
+            disabled={!hydrated && Boolean(session?.user)}
           >
             <Heart size={24} fill={liked ? 'currentColor' : 'none'} />
           </button>
@@ -97,10 +154,11 @@ const VibeCard = ({ user, image, caption, likes }: VibeCardProps) => {
             <button
               onClick={toggleLike}
               className={
-                "transition-transform hover:scale-110 " +
+                "transition-transform hover:scale-110 disabled:opacity-60 disabled:hover:scale-100 " +
                 (liked ? "text-rose-300" : "text-violet-300")
               }
               aria-label={liked ? 'Descurtir' : 'Curtir'}
+              disabled={!hydrated && Boolean(session?.user)}
             >
               <Heart size={24} fill={liked ? 'currentColor' : 'none'} />
             </button>
