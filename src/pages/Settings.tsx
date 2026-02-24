@@ -3,7 +3,7 @@
 import React from 'react';
 import BottomNav from '@/components/layout/BottomNav';
 import { ChevronLeft, User, Bell, Shield, HelpCircle, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 const Settings = () => {
@@ -15,10 +15,10 @@ const Settings = () => {
   };
 
   const menuItems = [
-    { icon: User, label: 'Editar Perfil', color: 'text-blue-400' },
-    { icon: Bell, label: 'Notificações', color: 'text-violet-400' },
-    { icon: Shield, label: 'Privacidade', color: 'text-green-400' },
-    { icon: HelpCircle, label: 'Ajuda', color: 'text-yellow-400' },
+    { icon: User, label: 'Editar Perfil', color: 'text-blue-400', path: '/edit-profile' },
+    { icon: Bell, label: 'Notificações', color: 'text-violet-400', path: '#' },
+    { icon: Shield, label: 'Privacidade', color: 'text-green-400', path: '#' },
+    { icon: HelpCircle, label: 'Ajuda', color: 'text-yellow-400', path: '#' },
   ];
 
   return (
@@ -33,13 +33,17 @@ const Settings = () => {
       <main className="px-6 py-8">
         <div className="space-y-2">
           {menuItems.map((item) => (
-            <button key={item.label} className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors">
+            <Link 
+              key={item.label} 
+              to={item.path}
+              className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors"
+            >
               <div className="flex items-center gap-4">
                 <item.icon size={20} className={item.color} />
                 <span className="font-medium">{item.label}</span>
               </div>
               <ChevronLeft size={18} className="rotate-180 text-gray-600" />
-            </button>
+            </Link>
           ))}
           
           <button 

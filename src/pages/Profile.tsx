@@ -1,11 +1,32 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import BottomNav from '@/components/layout/BottomNav';
-import { Settings as SettingsIcon, Grid, Bookmark, MapPin } from 'lucide-react';
+import { Settings as SettingsIcon, Grid, Bookmark, MapPin, Music, Link as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 const Profile = () => {
+  const { session } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchProfile();
+    }
+  }, [session]);
+
+  const fetchProfile = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session?.user.id)
+      .single();
+    
+    if (data) setProfile(data);
+  };
+
   const stats = [
     { label: 'Posts', value: '128' },
     { label: 'Vibes', value: '12.4k' },
@@ -24,7 +45,7 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32">
       <header className="px-6 py-6 flex justify-between items-center">
-        <h1 className="text-xl font-bold">@seu_perfil</h1>
+        <h1 className="text-xl font-bold">@{profile?.username || 'seu_perfil'}</h1>
         <Link to="/settings" className="p-2 hover:bg-white/5 rounded-full transition-colors">
           <SettingsIcon size={24} className="text-gray-400" />
         </Link>
@@ -36,25 +57,49 @@ const Profile = () => {
           <div className="relative mb-4">
             <div className="p-1 rounded-full bg-gradient-to-tr from-violet-600 to-cyan-400">
               <img 
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" 
+                src={profile?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"} 
                 className="w-24 h-24 rounded-full object-cover border-4 border-black" 
                 alt="Profile" 
               />
             </div>
-            <div className="absolute bottom-0 right-0 w-6 h-6 bg-violet-500 rounded-full border-4 border-black flex items-center justify-center">
+            <Link to="/edit-profile" className="absolute bottom-0 right-0 w-6 h-6 bg-violet-500 rounded-full border-4 border-black flex items-center justify-center">
               <span className="text-[10px] font-bold">+</span>
-            </div>
+            </Link>
           </div>
           
-          <h2 className="text-2xl font-black mb-1">Alex Rivera</h2>
+          <h2 className="text-2xl font-black mb-1">{profile?.first_name || 'Alex Rivera'}</h2>
+          
+          {profile?.gender && (
+            <span className="text-[10px] uppercase tracking-widest text-violet-400 font-bold mb-2">
+              {profile.gender}
+            </span>
+          )}
+
           <div className="flex items-center gap-1 text-gray-400 text-xs mb-4">
             <MapPin size={12} />
             <span>Lisboa, Portugal</span>
           </div>
           
-          <p className="text-sm text-gray-300 max-w-xs mb-6">
-            Criando conexões reais através da arte e tecnologia. 🚀✨
+          <p className="text-sm text-gray-300 max-w-xs mb-4">
+            {profile?.bio || 'Criando conexões reais através da arte e tecnologia. 🚀✨'}
           </p>
+
+          {profile?.favorite_music && (
+            <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full text-xs text-cyan-400 mb-4">
+              <Music size={12} />
+              <span>{profile.favorite_music}</span>
+            </div>
+          )}
+
+          {profile?.links && profile.links.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-3 mb-6">
+              {profile.links.map((link: string, i: number) => (
+                <a key={i} href={link} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-white transition-colors">
+                  <LinkIcon size={16} />
+                </a>
+              ))}
+            </div>
+          )}
 
           <div className="flex gap-8 w-full justify-center border-y border-white/5 py-4">
             {stats.map(stat => (
