@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Plus, Send, X } from "lucide-react";
+import { Plus, Send, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,11 @@ export default function VibesBar() {
 
   const [reply, setReply] = useState("");
   const [burst, setBurst] = useState<{ id: number; x: number; y: number; emoji: string } | null>(null);
+
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const barRef = useRef<HTMLDivElement | null>(null);
 
   const pressStartRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
@@ -378,48 +383,110 @@ export default function VibesBar() {
     // Intencionalmente local (sem fechar viewer). Integração real de mensagens pode ser conectada depois.
   };
 
+  const syncScrollArrows = useCallback(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(max - el.scrollLeft > 2);
+  }, []);
+
+  useEffect(() => {
+    syncScrollArrows();
+    const onResize = () => syncScrollArrows();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [syncScrollArrows, meItems.length, seen]);
+
+  const scrollByAmount = (dir: "left" | "right") => {
+    const el = barRef.current;
+    if (!el) return;
+    const amount = Math.max(220, Math.floor(el.clientWidth * 0.75));
+    el.scrollBy({ left: dir === "right" ? amount : -amount, behavior: "smooth" });
+    window.setTimeout(syncScrollArrows, 260);
+  };
+
   return (
     <>
       {/* Bar (não alterar layout) */}
-      <div className="flex gap-4 overflow-x-auto pb-4 pt-2 px-4 no-scrollbar scroll-smooth select-none active:cursor-grabbing">
-        {vibes.map((v, idx) => {
-          const unseen = hasUnseen(v);
-          return (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => openVibe(idx)}
-              className="flex flex-col items-center gap-1 flex-shrink-0 outline-none"
-              aria-label={`Abrir vibe de ${v.name}`}
-            >
-              <div
-                className={cn(
-                  "relative p-[3px] rounded-full transition-transform active:scale-95",
-                  v.isUser
-                    ? "bg-gradient-to-tr from-slate-600 via-slate-500 to-slate-300"
-                    : unseen
-                      ? "bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-400"
-                      : "bg-white/10"
-                )}
+      <div className="relative">
+        <div
+          ref={barRef}
+          onScroll={syncScrollArrows}
+          className="flex gap-4 overflow-x-auto pb-4 pt-2 pl-4 pr-14 no-scrollbar scroll-smooth select-none active:cursor-grabbing"
+        >
+          {vibes.map((v, idx) => {
+            const unseen = hasUnseen(v);
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => openVibe(idx)}
+                className="flex flex-col items-center gap-1 flex-shrink-0 outline-none"
+                aria-label={`Abrir vibe de ${v.name}`}
               >
-                <div className="bg-black/90 rounded-full p-[2px]">
-                  <img
-                    src={v.img}
-                    alt={v.name}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-black"
-                    draggable={false}
-                  />
-                </div>
-                {v.isUser && (
-                  <div className="absolute bottom-0 right-0 w-5 h-5 bg-violet-500 rounded-full border-2 border-black flex items-center justify-center shadow-[0_8px_20px_rgba(139,92,246,0.35)]">
-                    <Plus size={12} className="text-white" strokeWidth={3} />
+                <div
+                  className={cn(
+                    "relative p-[3px] rounded-full transition-transform active:scale-95",
+                    v.isUser
+                      ? "bg-gradient-to-tr from-slate-600 via-slate-500 to-slate-300"
+                      : unseen
+                        ? "bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-400"
+                        : "bg-white/10"
+                  )}
+                >
+                  <div className="bg-black/90 rounded-full p-[2px]">
+                    <img
+                      src={v.img}
+                      alt={v.name}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-black"
+                      draggable={false}
+                    />
                   </div>
-                )}
-              </div>
-              <span className="text-[10px] font-medium text-gray-300">{v.name}</span>
-            </button>
-          );
-        })}
+                  {v.isUser && (
+                    <div className="absolute bottom-0 right-0 w-5 h-5 bg-violet-500 rounded-full border-2 border-black flex items-center justify-center shadow-[0_8px_20px_rgba(139,92,246,0.35)]">
+                      <Plus size={12} className="text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                </div>
+                <span className="text-[10px] font-medium text-gray-300">{v.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Setinhas para navegar (mantém todos os avatares inteiros, especialmente o último) */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scrollByAmount("left")}
+            className={cn(
+              "absolute left-1 top-7 h-9 w-9 rounded-full",
+              "bg-black/50 backdrop-blur border border-white/10",
+              "text-white/85 hover:text-white hover:bg-black/60",
+              "transition active:scale-95"
+            )}
+            aria-label="Ver vibes anteriores"
+          >
+            <ChevronLeft className="h-5 w-5 mx-auto" />
+          </button>
+        )}
+
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scrollByAmount("right")}
+            className={cn(
+              "absolute right-1 top-7 h-9 w-9 rounded-full",
+              "bg-black/50 backdrop-blur border border-white/10",
+              "text-violet-100 hover:text-white hover:bg-black/60",
+              "transition active:scale-95"
+            )}
+            aria-label="Ver mais vibes"
+          >
+            <ChevronRight className="h-5 w-5 mx-auto" />
+          </button>
+        )}
       </div>
 
       {/* Create (Sua Vibe) */}
