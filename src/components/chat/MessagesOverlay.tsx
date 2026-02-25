@@ -32,11 +32,14 @@ type MessageRow = {
   created_at: string;
 };
 
+type FusionKind = "fusao" | "superfusao";
+
 type Conversation = {
   matchId: string;
   otherUser: ProfileRow;
   lastMessage?: MessageRow;
   unread: boolean;
+  fusionKind?: FusionKind | null;
 };
 
 export type MessagesOverlayProps = {
@@ -127,6 +130,18 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
       const byId = new Map(profiles.map((p) => [p.id, p] as const));
 
       const matchIds = matches.map((m) => m.id);
+
+      const { data: kindsRaw } = matchIds.length
+        ? await supabase.from("match_kinds").select("match_id,kind").in("match_id", matchIds)
+        : { data: [] as any[] };
+
+      if (cancelled) return;
+
+      const kindByMatch = new Map<string, FusionKind>();
+      (kindsRaw ?? []).forEach((r: any) => {
+        kindByMatch.set(r.match_id as string, r.kind as FusionKind);
+      });
+
       const { data: lastMessagesRaw } = matchIds.length
         ? await supabase
             .from("match_messages")
@@ -151,9 +166,19 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
           const lastMessage = lastByMatch.get(m.id);
           // No schema for read receipts yet — treat as unread if last message is from the other user.
           const unread = Boolean(lastMessage && lastMessage.sender_id !== session.user.id);
-          return { matchId: m.id, otherUser, lastMessage, unread };
+          const fusionKind = kindByMatch.get(m.id) ?? "fusao";
+          return { matchId: m.id, otherUser, lastMessage, unread, fusionKind };
         })
         .filter(Boolean) as Conversation[];
+
+      convs.sort((a, b) => {
+        const sa = (a.fusionKind === "superfusao" ? 2 : 0) + (a.unread ? 1 : 0);
+        const sb = (b.fusionKind === "superfusao" ? 2 : 0) + (b.unread ? 1 : 0);
+        if (sa !== sb) return sb - sa;
+        const ta = new Date(a.lastMessage?.created_at ?? 0).getTime();
+        const tb = new Date(b.lastMessage?.created_at ?? 0).getTime();
+        return tb - ta;
+      });
 
       setConversations(convs);
       setLoading(false);
@@ -339,6 +364,7 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                           const preview = c.lastMessage?.body ?? "Diga oi ✨";
                           const time = compactTime(c.lastMessage?.created_at) || compactTime(c.otherUser.id);
                           const initials = name.trim().slice(0, 2).toUpperCase();
+                          const superSeal = c.fusionKind === "superfusao";
 
                           return (
                             <button
@@ -347,16 +373,26 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                               onClick={() => openChat(c)}
                               className={cn(
                                 "w-full flex items-center gap-3 px-3 py-3 rounded-2xl",
-                                "bg-white/0 hover:bg-white/5",
-                                "border border-white/0 hover:border-white/10",
+                                superSeal
+                                  ? "bg-blue-500/10 hover:bg-blue-500/15 border border-blue-300/20 shadow-[0_18px_60px_rgba(99,102,241,0.12)]"
+                                  : "bg-white/0 hover:bg-white/5 border border-white/0 hover:border-white/10",
+
                                 "transition-colors"
                               )}
                               aria-label={`Abrir conversa com ${name}`}
                             >
                               <div className="relative shrink-0">
-                                <div className="p-[2px] rounded-full bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-400">
+                                <div
+                                  className={cn(
+                                    "p-[2px] rounded-full",
+                                    superSeal
+                                      ? "bg-gradient-to-tr from-blue-500 via-indigo-500 to-violet-500"
+                                      : "bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-400"
+                                  )}
+                                >
                                   <div className="rounded-full bg-black/90 p-[2px]">
-                                    <Avatar className="h-12 w-12">
+                                    <Avatar className={cn("h-12 w-12", superSeal && "ring-2 ring-blue-400/25")}
+                                    >
                                       <AvatarImage src={c.otherUser.avatar_url ?? undefined} alt={name} />
                                       <AvatarFallback className="bg-white/5 text-white font-bold">
                                         {initials || "?"}
@@ -364,8 +400,20 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                                     </Avatar>
                                   </div>
                                 </div>
+                                {superSeal && (
+                                  <span className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-gradient-to-br from-blue-400 to-violet-600 text-black text-[11px] font-black grid place-items-center border border-white/10 shadow-[0_14px_44px_rgba(96,165,250,0.25)]">
+                                    ✦
+                                  </span>
+                                )}
                                 {c.unread && (
-                                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-cyan-400 shadow-[0_8px_18px_rgba(34,211,238,0.35)] border border-black" />
+                                  <span
+                                    className={cn(
+                                      "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border border-black",
+                                      superSeal
+                                        ? "bg-blue-300 shadow-[0_10px_22px_rgba(96,165,250,0.35)]"
+                                        : "bg-cyan-400 shadow-[0_8px_18px_rgba(34,211,238,0.35)]"
+                                    )}
+                                  />
                                 )}
                               </div>
 
@@ -377,6 +425,11 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                                 <div className={cn("truncate text-xs", c.unread ? "text-gray-200" : "text-gray-400")}>
                                   {preview}
                                 </div>
+                                {superSeal && (
+                                  <div className="mt-1 inline-flex items-center rounded-full border border-blue-300/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-extrabold text-blue-100 tracking-wide">
+                                    💫 Superfusão
+                                  </div>
+                                )}
                               </div>
                             </button>
                           );
@@ -396,7 +449,12 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                   >
                     <div className="px-5 py-4 border-b border-white/10 bg-black/10">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 ring-2 ring-violet-500/30">
+                        <Avatar
+                          className={cn(
+                            "h-10 w-10",
+                            active?.fusionKind === "superfusao" ? "ring-2 ring-blue-400/30" : "ring-2 ring-violet-500/30"
+                          )}
+                        >
                           <AvatarImage
                             src={active?.otherUser.avatar_url ?? undefined}
                             alt={active?.otherUser.first_name ?? active?.otherUser.username ?? ""}
@@ -409,11 +467,17 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-extrabold text-white">
+                          <div className="truncate text-sm font-extrabold text-white flex items-center gap-2">
                             {active?.otherUser.first_name || active?.otherUser.username || "Conversa"}
+                            {active?.fusionKind === "superfusao" && (
+                              <span className="inline-flex items-center rounded-full bg-gradient-to-r from-blue-400 to-violet-600 px-2 py-0.5 text-[10px] font-black text-black border border-white/10 shadow-[0_14px_44px_rgba(99,102,241,0.18)]">
+                                ✦ SELO
+                              </span>
+                            )}
                           </div>
-                          <div className="text-[10px] text-gray-400">Fusão</div>
-
+                          <div className="text-[10px] text-gray-400">
+                            {active?.fusionKind === "superfusao" ? "💫 Superfusão" : "Fusão"}
+                          </div>
                         </div>
                       </div>
                     </div>

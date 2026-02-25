@@ -3,14 +3,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import BottomNav from '@/components/layout/BottomNav';
 import { Star } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import MatchChatSheet from '@/components/chat/MatchChatSheet';
 import MessagesLauncher from '@/components/chat/MessagesLauncher';
 import FusionActionBar, { FusionAction } from '@/components/matches/FusionActionBar';
 import FusionConfirmedDialog from '@/components/matches/FusionConfirmedDialog';
-import SuperFusionDialog from '@/components/matches/SuperFusionDialog';
+import SuperfusionConfirmedDialog from '@/components/matches/SuperfusionConfirmedDialog';
 
 type ProfileRow = {
   id: string;
@@ -45,6 +46,10 @@ const Matches = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatFusionKind, setChatFusionKind] = useState<"fusao" | "superfusao" | null>(null);
   const [showFusionIntro, setShowFusionIntro] = useState(false);
+
+  // Superfusão: feedback visual de envio + destaque recebido
+  const [superfusionSentFx, setSuperfusionSentFx] = useState(false);
+  const [receivedSuperfusionIds, setReceivedSuperfusionIds] = useState<Set<string>>(new Set());
 
   const you = useMemo(
     () => ({
@@ -93,6 +98,22 @@ const Matches = () => {
       const rows = (data ?? []) as ProfileRow[];
       setCandidates(rows.map((p) => ({ id: p.id, profile: p })));
       setIndex(0);
+
+      const ids = rows.map((r) => r.id);
+      if (!ids.length) {
+        setReceivedSuperfusionIds(new Set());
+        return;
+      }
+
+      const { data: incoming } = await supabase
+        .from('swipes')
+        .select('swiper_id')
+        .eq('target_id', session.user.id)
+        .eq('direction', 'superlike')
+        .in('swiper_id', ids);
+
+      if (cancelled) return;
+      setReceivedSuperfusionIds(new Set((incoming ?? []).map((r: any) => r.swiper_id as string)));
     })();
 
     return () => {
@@ -149,6 +170,11 @@ const Matches = () => {
     });
   };
 
+  const upsertMatchKind = async (matchId: string | null, kind: "fusao" | "superfusao") => {
+    if (!matchId) return;
+    await supabase.from('match_kinds').upsert({ match_id: matchId, kind });
+  };
+
   const animateOut = async (direction: SwipeDirection) => {
     if (direction === 'pass') {
       setAnim({ x: -240, y: 30, rot: -10, opacity: 0 });
@@ -194,6 +220,11 @@ const Matches = () => {
     const swipeDir: SwipeDirection =
       action === 'desfusao' ? 'pass' : action === 'fusao' ? 'like' : 'superlike';
 
+    if (swipeDir === 'superlike') {
+      setSuperfusionSentFx(true);
+      window.setTimeout(() => setSuperfusionSentFx(false), 520);
+    }
+
     setBusy(true);
     setLastAction({ candidate: current, action: swipeDir });
 
@@ -210,6 +241,7 @@ const Matches = () => {
 
       if (swipeDir === 'like' && reciprocalLike) {
         const matchId = await createMatchIfNeeded(current.id);
+        await upsertMatchKind(matchId, "fusao");
         setActiveMatchId(matchId);
         setActiveOther(current.profile);
         setChatFusionKind("fusao");
@@ -218,6 +250,7 @@ const Matches = () => {
 
       if (swipeDir === 'superlike' && reciprocalSuper) {
         const matchId = await createMatchIfNeeded(current.id);
+        await upsertMatchKind(matchId, "superfusao");
         setActiveMatchId(matchId);
         setActiveOther(current.profile);
         setChatFusionKind("superfusao");
@@ -245,10 +278,12 @@ const Matches = () => {
 
   useEffect(() => {
     if (!superMatchOpen) return;
-    const t = window.setTimeout(() => startChat("superfusao"), 650);
+    const t = window.setTimeout(() => startChat("superfusao"), 900);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [superMatchOpen]);
+
+  const receivedSuperfusion = Boolean(current && receivedSuperfusionIds.has(current.id));
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32 overflow-hidden">
@@ -276,6 +311,53 @@ const Matches = () => {
               transition={{ duration: 0.24, ease: 'easeOut' }}
               className="absolute inset-0 bg-gradient-to-b from-gray-800 to-gray-900 rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden"
             >
+              {/* Destaque: você recebeu uma Superfusão dessa pessoa */}
+              {receivedSuperfusion && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute inset-0 bg-gradient-to-t from-blue-500/20 via-indigo-500/10 to-transparent" />
+                  <div className="absolute -top-16 -left-16 h-64 w-64 rounded-full bg-blue-400/25 blur-3xl" />
+                  <div className="absolute -bottom-16 -right-16 h-64 w-64 rounded-full bg-violet-400/20 blur-3xl" />
+                  <div className="absolute left-6 top-6 rounded-full border border-blue-200/20 bg-black/35 px-3 py-1 text-[10px] font-extrabold tracking-wide text-blue-100 backdrop-blur">
+                    💫 Superfusão recebida
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback: superfusão enviada */}
+              <AnimatePresence>
+                {superfusionSentFx && (
+                  <motion.div
+                    className="absolute inset-0 pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-blue-500/20 via-indigo-500/10 to-transparent" />
+                    {Array.from({ length: 18 }).map((_, i) => (
+                      <motion.span
+                        key={i}
+                        className={cn(
+                          "absolute left-1/2 top-1/2 h-2 w-2 rounded-full",
+                          i % 2 === 0 ? "bg-blue-300/90" : "bg-violet-400/90"
+                        )}
+                        initial={{ x: 0, y: 0, opacity: 0, scale: 0.7 }}
+                        animate={{
+                          x: (Math.random() - 0.5) * 260,
+                          y: (Math.random() - 0.5) * 260,
+                          opacity: [0, 1, 0],
+                          scale: [0.7, 1.15, 0.6],
+                        }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                      />
+                    ))}
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 px-4 py-2 text-xs font-black tracking-tight text-white backdrop-blur">
+                      💫 Superfusão enviada
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <img
                 src={
                   current.profile.avatar_url ||
@@ -293,7 +375,10 @@ const Matches = () => {
                     <span className="text-white/50">,</span>
                     <span className="text-white/80"> 22</span>
                   </h2>
-                  <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
+                  <div className={cn(
+                    "w-3 h-3 rounded-full border-2 border-black",
+                    receivedSuperfusion ? "bg-blue-400 shadow-[0_10px_24px_rgba(96,165,250,0.35)]" : "bg-green-500"
+                  )} />
                 </div>
                 <p className="text-gray-300 text-sm mb-4">
                   {current.profile.location || 'Aurēa vibes — vamos nos fundir?'}
@@ -331,7 +416,7 @@ const Matches = () => {
       />
 
       {/* Superfusão */}
-      <SuperFusionDialog
+      <SuperfusionConfirmedDialog
         open={superMatchOpen}
         onOpenChange={setSuperMatchOpen}
         you={you}

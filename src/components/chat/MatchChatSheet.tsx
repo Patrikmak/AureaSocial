@@ -125,11 +125,14 @@ export default function MatchChatSheet({
     const intro: SystemItem = {
       kind: "system",
       id: `system-fusion-intro:${matchId}`,
-      body: "✨ Vocês se fundiram. A conversa começa agora.",
+      body:
+        fusionKind === "superfusao"
+          ? "💫 Superfusão Ativada. Acesso ao chat liberado."
+          : "✨ Vocês se fundiram. A conversa começa agora.",
     };
 
     return [intro, ...base];
-  }, [messages, open, matchId, showFusionIntro]);
+  }, [messages, open, matchId, showFusionIntro, fusionKind]);
 
   const fusionLabel = fusionKind === "superfusao" ? "Superfusão" : "Fusão";
 
@@ -158,7 +161,7 @@ export default function MatchChatSheet({
                       className={cn(
                         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 border",
                         fusionKind === "superfusao"
-                          ? "bg-cyan-500/10 border-cyan-400/20 text-cyan-200"
+                          ? "bg-blue-500/10 border-blue-300/20 text-blue-100"
                           : "bg-violet-500/10 border-violet-400/20 text-violet-200"
                       )}
                     >
@@ -169,6 +172,11 @@ export default function MatchChatSheet({
                       )}
                       {fusionLabel}
                     </span>
+                    {fusionKind === "superfusao" && (
+                      <span className="inline-flex items-center rounded-full bg-gradient-to-r from-blue-400 to-violet-600 px-2 py-0.5 text-[10px] font-black text-black border border-white/10 shadow-[0_14px_44px_rgba(99,102,241,0.18)]">
+                        ✦ SELO
+                      </span>
+                    )}
                     <span className="text-white/35">•</span>
                     <span className="text-white/55">Aurēa Chat</span>
                   </div>
