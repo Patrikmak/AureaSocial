@@ -4,9 +4,9 @@ import React, { useState } from "react";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import MessagesOverlay from "@/components/chat/MessagesOverlay";
 import { useIsMobile } from "@/hooks/use-mobile";
+import useUnreadMessagesCount from "@/hooks/useUnreadMessagesCount";
 
 export type MessagesLauncherProps = {
-  unreadCount?: number;
   avatars?: string[];
 };
 
@@ -16,9 +16,10 @@ const FALLBACK_AVATARS = [
   "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
 ];
 
-export default function MessagesLauncher({ unreadCount = 12, avatars }: MessagesLauncherProps) {
+export default function MessagesLauncher({ avatars }: MessagesLauncherProps) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  const unreadCount = useUnreadMessagesCount();
 
   const resolvedAvatars = avatars ?? FALLBACK_AVATARS;
 
@@ -29,11 +30,7 @@ export default function MessagesLauncher({ unreadCount = 12, avatars }: Messages
     <>
       <MessagesOverlay open={open} onOpenChange={setOpen} unreadCount={unreadCount} />
 
-      <ChatFloatingButton
-        unreadCount={unreadCount}
-        avatars={resolvedAvatars}
-        openMessages={() => setOpen(true)}
-      />
+      <ChatFloatingButton unreadCount={unreadCount} avatars={resolvedAvatars} openMessages={() => setOpen(true)} />
     </>
   );
 }

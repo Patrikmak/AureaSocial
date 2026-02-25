@@ -76,7 +76,7 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
 
   const badgeText = useMemo(() => {
     if (unreadCount <= 0) return null;
-    return unreadCount > 9 ? "9+" : String(unreadCount);
+    return String(unreadCount);
   }, [unreadCount]);
 
   const close = () => {
@@ -90,12 +90,36 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
     setText("");
   };
 
+  const markRead = async (matchId: string) => {
+    if (!session?.user) return;
+
+    await supabase.from("match_read_states").upsert(
+      {
+        match_id: matchId,
+        user_id: session.user.id,
+        last_read_at: new Date().toISOString(),
+      },
+      { onConflict: "match_id,user_id" }
+    );
+  };
+
   useEffect(() => {
     if (!open) {
       reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // When entering a chat, mark it read.
+  useEffect(() => {
+    if (!open) return;
+    if (view !== "chat") return;
+    if (!active?.matchId) return;
+    if (!session?.user) return;
+
+    markRead(active.matchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, view, active?.matchId, session?.user]);
 
   // Load conversations (matches + other profiles + last message)
   useEffect(() => {
@@ -158,14 +182,33 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
         if (!lastByMatch.has(m.match_id)) lastByMatch.set(m.match_id, m as MessageRow);
       });
 
+      const { data: readsRaw } = matchIds.length
+        ? await supabase
+            .from("match_read_states")
+            .select("match_id,last_read_at")
+            .in("match_id", matchIds)
+            .eq("user_id", session.user.id)
+        : { data: [] as any[] };
+
+      if (cancelled) return;
+
+      const readByMatch = new Map<string, string>();
+      (readsRaw ?? []).forEach((r: any) => {
+        readByMatch.set(r.match_id as string, r.last_read_at as string);
+      });
+
       const convs: Conversation[] = matches
         .map((m) => {
           const otherId = m.user_low === session.user.id ? m.user_high : m.user_low;
           const otherUser = byId.get(otherId);
           if (!otherUser) return null;
           const lastMessage = lastByMatch.get(m.id);
-          // No schema for read receipts yet — treat as unread if last message is from the other user.
-          const unread = Boolean(lastMessage && lastMessage.sender_id !== session.user.id);
+          const lastReadAt = readByMatch.get(m.id);
+          const unread = Boolean(
+            lastMessage &&
+              lastMessage.sender_id !== session.user.id &&
+              new Date(lastMessage.created_at).getTime() > new Date(lastReadAt ?? 0).getTime()
+          );
           const fusionKind = kindByMatch.get(m.id) ?? "fusao";
           return { matchId: m.id, otherUser, lastMessage, unread, fusionKind };
         })
@@ -222,6 +265,11 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
         (payload) => {
           setMessages((prev) => [...prev, payload.new as MessageRow]);
           queueMicrotask(scrollToEnd);
+
+          const next = payload.new as MessageRow;
+          if (next.sender_id !== session.user.id) {
+            markRead(active.matchId);
+          }
         }
       )
       .subscribe();
@@ -354,7 +402,6 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                         <div className="text-sm font-extrabold text-white">Nenhuma conversa ainda</div>
                         <div className="text-xs text-gray-400 mt-1">
                           Quando você fizer uma fusão, suas mensagens aparecem aqui.
-
                         </div>
                       </div>
                     ) : (
@@ -376,7 +423,6 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                                 superSeal
                                   ? "bg-blue-500/10 hover:bg-blue-500/15 border border-blue-300/20 shadow-[0_18px_60px_rgba(99,102,241,0.12)]"
                                   : "bg-white/0 hover:bg-white/5 border border-white/0 hover:border-white/10",
-
                                 "transition-colors"
                               )}
                               aria-label={`Abrir conversa com ${name}`}
@@ -391,8 +437,7 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                                   )}
                                 >
                                   <div className="rounded-full bg-black/90 p-[2px]">
-                                    <Avatar className={cn("h-12 w-12", superSeal && "ring-2 ring-blue-400/25")}
-                                    >
+                                    <Avatar className={cn("h-12 w-12", superSeal && "ring-2 ring-blue-400/25")}>
                                       <AvatarImage src={c.otherUser.avatar_url ?? undefined} alt={name} />
                                       <AvatarFallback className="bg-white/5 text-white font-bold">
                                         {initials || "?"}

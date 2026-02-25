@@ -20,7 +20,7 @@ export default function ChatFloatingButton({
 }: ChatFloatingButtonProps) {
   const badgeText = useMemo(() => {
     if (unreadCount <= 0) return null;
-    return unreadCount > 9 ? "9+" : String(unreadCount);
+    return String(unreadCount);
   }, [unreadCount]);
 
   const visibleAvatars = useMemo(() => avatars.slice(0, 3), [avatars]);
