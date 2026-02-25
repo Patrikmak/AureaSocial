@@ -2,8 +2,9 @@
 
 import React from 'react';
 import BottomNav from '@/components/layout/BottomNav';
-import StoryBar from '@/components/feed/StoryBar';
+import VibesBar from '@/components/feed/VibesBar';
 import VibeCard from '@/components/feed/VibeCard';
+
 import { Bell, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -46,8 +47,8 @@ const Index = () => {
       </header>
 
       <main className="max-w-lg mx-auto pt-4">
-        <StoryBar />
-        
+        <VibesBar />
+
         <div className="px-4 mt-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold">Para Você</h2>
