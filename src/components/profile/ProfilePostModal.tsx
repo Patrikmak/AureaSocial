@@ -99,6 +99,8 @@ export default function ProfilePostModal({
 
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentText, setCommentText] = useState("");
+  const [composerOpen, setComposerOpen] = useState(false);
+
   const [doubleTapHeart, setDoubleTapHeart] = useState(false);
   const [editingCaption, setEditingCaption] = useState(false);
   const [captionDraft, setCaptionDraft] = useState<string>("");
@@ -116,6 +118,12 @@ export default function ProfilePostModal({
     if (!open) return;
     setIndex(initialIndex);
   }, [open, initialIndex]);
+
+  useEffect(() => {
+    if (!open) return;
+    setComposerOpen(false);
+    setCommentText("");
+  }, [open, postId]);
 
   useEffect(() => {
     if (!open) return;
@@ -314,9 +322,10 @@ export default function ProfilePostModal({
     lastTapRef.current = now;
   };
 
-  const scrollToComments = () => {
+  const openComposer = () => {
+    setComposerOpen(true);
     commentsAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => commentInputRef.current?.focus(), 160);
+    window.setTimeout(() => commentInputRef.current?.focus(), 200);
   };
 
   const share = async () => {
@@ -567,7 +576,7 @@ export default function ProfilePostModal({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          scrollToComments();
+                          openComposer();
                         }}
                         className="h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-gray-100 hover:bg-white/15 transition-colors"
                         aria-label="Comentários"
@@ -693,27 +702,63 @@ export default function ProfilePostModal({
           {/* Composer */}
           <div className="px-5 py-4 border-t border-white/10 bg-black/30">
             <div className="text-[10px] text-gray-500 mb-2">{timeAgo(post.created_at)}</div>
-            <div className="flex items-center gap-2">
-              <Input
-                ref={commentInputRef}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    submitComment();
-                  }
-                }}
-                className="h-11 rounded-full bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500"
-                placeholder="Adicionar comentário..."
-              />
-              <Button
-                onClick={submitComment}
-                className="h-11 rounded-full bg-cyan-500/90 hover:bg-cyan-500 text-black font-black"
-              >
-                Enviar
-              </Button>
-            </div>
+
+            <AnimatePresence initial={false} mode="wait">
+              {composerOpen ? (
+                <motion.div
+                  key="composer-open"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                  className="flex items-center gap-2"
+                >
+                  <Input
+                    ref={commentInputRef}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        submitComment();
+                      }
+                    }}
+                    className="h-11 rounded-full bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500"
+                    placeholder="Adicionar comentário..."
+                  />
+                  <Button
+                    onClick={submitComment}
+                    className="h-11 rounded-full bg-cyan-500/90 hover:bg-cyan-500 text-black font-black"
+                  >
+                    Enviar
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="composer-closed"
+                  type="button"
+                  onClick={openComposer}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                  className={cn(
+                    "w-full h-11 rounded-full",
+                    "bg-white/5 border border-white/10",
+                    "text-left px-4",
+                    "flex items-center justify-between",
+                    "hover:bg-white/8 transition-colors"
+                  )}
+                  aria-label="Abrir caixa de comentário"
+                >
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <MessageCircle className="h-4 w-4 text-violet-200" />
+                    <span className="text-sm">Adicionar comentário…</span>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-cyan-200">Comentar</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </DialogContent>
