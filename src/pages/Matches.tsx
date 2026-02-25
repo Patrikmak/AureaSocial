@@ -12,6 +12,7 @@ import MessagesLauncher from '@/components/chat/MessagesLauncher';
 import FusionActionBar, { FusionAction } from '@/components/matches/FusionActionBar';
 import FusionConfirmedDialog from '@/components/matches/FusionConfirmedDialog';
 import SuperfusionConfirmedDialog from '@/components/matches/SuperfusionConfirmedDialog';
+import MatchesInboxSheet from '@/components/matches/MatchesInboxSheet';
 
 type ProfileRow = {
   id: string;
@@ -46,6 +47,9 @@ const Matches = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatFusionKind, setChatFusionKind] = useState<"fusao" | "superfusao" | null>(null);
   const [showFusionIntro, setShowFusionIntro] = useState(false);
+
+  // Inbox (prévia das fusões)
+  const [inboxOpen, setInboxOpen] = useState(false);
 
   // Superfusão: feedback visual de envio + destaque recebido
   const [superfusionSentFx, setSuperfusionSentFx] = useState(false);
@@ -269,6 +273,19 @@ const Matches = () => {
     setChatOpen(true);
   };
 
+  const openChatFromInbox = async (payload: { matchId: string; otherUser: ProfileRow }) => {
+    setInboxOpen(false);
+    setActiveMatchId(payload.matchId);
+    setActiveOther(payload.otherUser);
+
+    const { data } = await supabase.from('match_kinds').select('kind').eq('match_id', payload.matchId).maybeSingle();
+    const kind = (data?.kind as ("fusao" | "superfusao") | undefined) ?? "fusao";
+
+    setChatFusionKind(kind);
+    setShowFusionIntro(false);
+    setChatOpen(true);
+  };
+
   useEffect(() => {
     if (!matchOpen) return;
     const t = window.setTimeout(() => startChat("fusao"), 8000);
@@ -290,9 +307,14 @@ const Matches = () => {
       <header className="px-6 py-6 flex justify-between items-center">
         <h1 className="text-2xl font-black tracking-tight">DESCUBRA</h1>
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => setInboxOpen(true)}
+            className="w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center"
+            aria-label="Abrir fusões"
+          >
             <Star size={20} className="text-yellow-500" />
-          </div>
+          </button>
         </div>
       </header>
 
@@ -423,6 +445,9 @@ const Matches = () => {
         other={activeOther}
         onStartChat={startChat}
       />
+
+      {/* Inbox (prévia de fusões) */}
+      <MatchesInboxSheet open={inboxOpen} onOpenChange={setInboxOpen} onOpenChat={openChatFromInbox} />
 
       {/* Chat overlay (existing bottom sheet component) */}
       <MatchChatSheet
