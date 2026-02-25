@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, Heart, MoreHorizontal, Trash2, PencilLine } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  MessageCircle,
+  PencilLine,
+  Share2,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -10,7 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { showError, showSuccess } from "@/utils/toast";
 
 export type ProfilePost = {
   id: string;
@@ -53,6 +63,12 @@ function timeAgo(iso: string) {
   return `há ${sec}s`;
 }
 
+function compactCount(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return String(n);
+}
+
 export default function ProfilePostModal({
   open,
   onOpenChange,
@@ -88,6 +104,9 @@ export default function ProfilePostModal({
   const lastTapRef = useRef<number>(0);
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
 
+  const commentsAnchorRef = useRef<HTMLDivElement | null>(null);
+  const commentInputRef = useRef<HTMLInputElement | null>(null);
+
   const isMobile = useMemo(() => window.matchMedia?.("(max-width: 767px)").matches ?? false, []);
 
   useEffect(() => {
@@ -101,7 +120,6 @@ export default function ProfilePostModal({
 
     let cancelled = false;
     (async () => {
-      // Like state
       if (session?.user) {
         const { data: likeRow } = await supabase
           .from("post_likes")
@@ -115,7 +133,6 @@ export default function ProfilePostModal({
         setLiked(false);
       }
 
-      // Like count
       const { count } = await supabase
         .from("post_likes")
         .select("id", { count: "exact", head: true })
@@ -123,7 +140,6 @@ export default function ProfilePostModal({
       if (cancelled) return;
       setLikesCount(count ?? 0);
 
-      // Comments
       const { data: commentRows } = await supabase
         .from("post_comments")
         .select("id, post_id, user_id, text, created_at")
@@ -172,6 +188,9 @@ export default function ProfilePostModal({
 
   const prev = () => setIndex((i) => Math.max(0, i - 1));
   const next = () => setIndex((i) => Math.min(posts.length - 1, i + 1));
+
+  const canPrev = index > 0;
+  const canNext = index < posts.length - 1;
 
   const triggerBigHeart = () => {
     setDoubleTapHeart(true);
@@ -235,20 +254,17 @@ export default function ProfilePostModal({
     const dy = t.clientY - start.y;
     const dt = Date.now() - start.t;
 
-    // swipe down to close
     if (dy > 90 && Math.abs(dx) < 60 && dt < 600) {
       onOpenChange(false);
       return;
     }
 
-    // swipe left/right to navigate
     if (Math.abs(dx) > 70 && Math.abs(dy) < 70 && dt < 600) {
       if (dx < 0) next();
       else prev();
       return;
     }
 
-    // double tap
     const now = Date.now();
     if (now - lastTapRef.current < 280) {
       lastTapRef.current = 0;
@@ -256,6 +272,21 @@ export default function ProfilePostModal({
       return;
     }
     lastTapRef.current = now;
+  };
+
+  const scrollToComments = () => {
+    commentsAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => commentInputRef.current?.focus(), 160);
+  };
+
+  const share = async () => {
+    if (!post?.media_url) return;
+    try {
+      await navigator.clipboard.writeText(post.media_url);
+      showSuccess("Link copiado");
+    } catch {
+      showError("Não foi possível copiar o link");
+    }
   };
 
   const submitComment = async () => {
@@ -291,7 +322,6 @@ export default function ProfilePostModal({
       return;
     }
 
-    // Load your profile for username/avatar
     const { data: me } = await supabase
       .from("profiles")
       .select("id, first_name, username, avatar_url")
@@ -350,45 +380,59 @@ export default function ProfilePostModal({
 
   if (!post) return null;
 
-  const canPrev = index > 0;
-  const canNext = index < posts.length - 1;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogOverlay ref={overlayRef} className="bg-black/80 backdrop-blur-sm" />
       <DialogContent
         className={cn(
           "p-0 border-white/10 bg-transparent shadow-none",
-          "w-[calc(100vw-1.25rem)] max-w-[980px]",
-          isMobile ? "h-[calc(100vh-1.25rem)]" : "h-[min(760px,calc(100vh-4rem))]"
+          "w-[92vw] max-w-md",
+          isMobile ? "h-[calc(100vh-1.25rem)]" : "max-h-[86vh]"
         )}
         onPointerDownOutside={() => onOpenChange(false)}
       >
-        <div
-          className={cn(
-            "relative grid h-full overflow-hidden",
-            "rounded-[2rem] border border-white/10 bg-[#07070a]",
-            isMobile ? "grid-rows-[1fr_auto]" : "md:grid-cols-[1.35fr_1fr]"
-          )}
-        >
-          {/* Close button */}
-          <button
-            onClick={() => onOpenChange(false)}
-            className="absolute right-3 top-3 z-30 h-10 w-10 rounded-full bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="Fechar"
-          >
-            <X size={18} />
-          </button>
+        <div className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-[#07070A] shadow-[0_28px_90px_rgba(0,0,0,0.72)]">
+          {/* Top actions (X + owner tools) */}
+          <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+            {isOwner && (
+              <>
+                <button
+                  type="button"
+                  onClick={startEditCaption}
+                  className="h-10 w-10 rounded-full bg-black/35 border border-white/10 backdrop-blur-md flex items-center justify-center text-cyan-200 hover:bg-black/45 transition-colors"
+                  aria-label="Editar legenda"
+                >
+                  <PencilLine size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={deletePost}
+                  className="h-10 w-10 rounded-full bg-black/35 border border-white/10 backdrop-blur-md flex items-center justify-center text-rose-200 hover:bg-black/45 transition-colors"
+                  aria-label="Excluir post"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="h-10 w-10 rounded-full bg-black/35 border border-white/10 backdrop-blur-md flex items-center justify-center text-white/85 hover:text-white hover:bg-black/45 transition-colors"
+              aria-label="Fechar"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
-          {/* Desktop arrows */}
+          {/* Desktop nav arrows */}
           {!isMobile && (
             <>
               <button
                 onClick={prev}
                 disabled={!canPrev}
                 className={cn(
-                  "absolute left-3 top-1/2 -translate-y-1/2 z-30 h-11 w-11 rounded-full border border-white/10 backdrop-blur-md flex items-center justify-center transition-colors",
-                  canPrev ? "bg-white/5 text-white hover:bg-white/10" : "bg-white/3 text-white/30"
+                  "absolute left-3 top-[30%] z-30 h-11 w-11 rounded-full border border-white/10 backdrop-blur-md flex items-center justify-center transition-colors",
+                  canPrev ? "bg-black/35 text-white hover:bg-black/45" : "bg-black/20 text-white/25"
                 )}
                 aria-label="Anterior"
               >
@@ -398,8 +442,8 @@ export default function ProfilePostModal({
                 onClick={next}
                 disabled={!canNext}
                 className={cn(
-                  "absolute right-14 top-1/2 -translate-y-1/2 z-30 h-11 w-11 rounded-full border border-white/10 backdrop-blur-md flex items-center justify-center transition-colors",
-                  canNext ? "bg-white/5 text-white hover:bg-white/10" : "bg-white/3 text-white/30"
+                  "absolute right-3 top-[30%] z-30 h-11 w-11 rounded-full border border-white/10 backdrop-blur-md flex items-center justify-center transition-colors",
+                  canNext ? "bg-black/35 text-white hover:bg-black/45" : "bg-black/20 text-white/25"
                 )}
                 aria-label="Próximo"
               >
@@ -409,18 +453,19 @@ export default function ProfilePostModal({
           )}
 
           {/* Media */}
-          <div className={cn("relative", isMobile ? "" : "md:rounded-l-[2rem]")}> 
-            <div className="relative h-full">
-              <button
-                type="button"
-                onClick={onMediaClick}
-                onTouchStart={onMediaTouchStart}
-                onTouchEnd={onMediaTouchEnd}
-                className="relative block w-full h-full"
-                aria-label="Mídia do post"
-              >
-                <img src={post.media_url} alt="" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={onMediaClick}
+              onTouchStart={onMediaTouchStart}
+              onTouchEnd={onMediaTouchEnd}
+              className="relative block w-full"
+              aria-label="Mídia do post"
+            >
+              <div className="relative aspect-[4/5]">
+                <img src={post.media_url} alt="" className="h-full w-full object-cover" draggable={false} />
+                <div className="absolute inset-0 bg-black/10" />
+                <div className="absolute inset-x-0 bottom-0 h-28 bg-black/55" />
 
                 <AnimatePresence>
                   {doubleTapHeart && (
@@ -431,176 +476,174 @@ export default function ProfilePostModal({
                       transition={{ type: "spring", stiffness: 380, damping: 22 }}
                       className="absolute inset-0 flex items-center justify-center"
                     >
-                      <div className="h-20 w-20 rounded-full bg-black/35 border border-white/10 backdrop-blur-md flex items-center justify-center">
+                      <div className="h-20 w-20 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center">
                         <Heart className="h-10 w-10 text-white" fill="currentColor" strokeWidth={0} />
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </button>
 
-              {/* Footer overlay: likes + actions + caption */}
-              <div className="absolute left-5 right-5 bottom-5 z-20">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-xs font-semibold text-gray-200">
-                    <span className="text-white">{likesCount}</span> Farms
+                {/* Bottom overlay content */}
+                <div className="absolute bottom-4 left-5 right-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-semibold text-gray-200">
+                      <span className="text-white">{compactCount(likesCount)}</span> Farms
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleLike();
+                        }}
+                        className={cn(
+                          "h-10 w-10 rounded-full border border-white/15 backdrop-blur-md flex items-center justify-center transition-colors",
+                          liked ? "bg-rose-500/18 text-rose-200" : "bg-white/10 text-gray-100 hover:bg-white/15"
+                        )}
+                        aria-label={liked ? "Descurtir" : "Curtir"}
+                      >
+                        <Heart size={18} fill={liked ? "currentColor" : "none"} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          scrollToComments();
+                        }}
+                        className="h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-gray-100 hover:bg-white/15 transition-colors"
+                        aria-label="Comentários"
+                      >
+                        <MessageCircle size={18} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          share();
+                        }}
+                        className="h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-gray-100 hover:bg-white/15 transition-colors"
+                        aria-label="Compartilhar"
+                      >
+                        <Share2 size={18} />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={toggleLike}
-                      className={cn(
-                        "h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center transition-colors",
-                        liked ? "text-rose-300 bg-rose-500/15" : "text-violet-200 hover:text-violet-100 hover:bg-white/15"
-                      )}
-                      aria-label={liked ? "Descurtir" : "Curtir"}
-                    >
-                      <Heart size={18} fill={liked ? "currentColor" : "none"} />
-                    </button>
+                  <div className="mt-4 text-sm text-gray-200">
+                    <span className="font-extrabold text-white mr-2">{post.user.name}</span>
+                    {post.caption}
                   </div>
-                </div>
-
-                <div className="mt-4 text-sm text-gray-200">
-                  <span className="font-extrabold text-white mr-2">{post.user.name}</span>
-                  {post.caption}
                 </div>
               </div>
+            </button>
+          </div>
+
+          {/* Comments */}
+          <div ref={commentsAnchorRef} className="px-5 pt-5">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-black tracking-tight text-white">Comentários</div>
+              <div className="text-[10px] text-gray-500">{comments.length} no total</div>
             </div>
           </div>
 
-          {/* Side panel */}
-          <div className={cn("flex flex-col", isMobile ? "border-t border-white/10" : "md:border-l md:border-white/10")}> 
-            <div className="px-5 py-4 flex items-center justify-between border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <img
-                  src={
-                    post.user.avatar_url ||
-                    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"
-                  }
-                  className="w-9 h-9 rounded-full object-cover border border-violet-500/40"
-                  alt=""
-                />
-                <div className="leading-tight">
-                  <div className="text-sm font-extrabold tracking-tight text-white">{post.user.name}</div>
-                  <div className="text-[10px] text-gray-500">@{post.user.username}</div>
-                </div>
-              </div>
+          <div className={cn("px-3 pb-3", isMobile ? "" : "")}
+          >
+            <ScrollArea className={cn(isMobile ? "h-[32vh]" : "h-[340px]")}
+            >
+              <div className="px-2 pt-4 space-y-3">
+                {comments.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-start gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-4"
+                  >
+                    <img
+                      src={c.user.avatar_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100"}
+                      className="w-10 h-10 rounded-full object-cover border border-white/10"
+                      alt=""
+                      draggable={false}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="truncate text-xs font-extrabold text-white">{c.user.name}</div>
+                        <div className="shrink-0 text-[10px] text-gray-500">{timeAgo(c.created_at)}</div>
+                      </div>
+                      <div className="mt-1 text-xs text-gray-200 whitespace-pre-wrap">{c.text}</div>
+                    </div>
 
-              <div className="flex items-center gap-2">
-                {isOwner && (
-                  <>
-                    <button
-                      onClick={startEditCaption}
-                      className="h-9 w-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-cyan-200 hover:bg-white/10 transition-colors"
-                      aria-label="Editar legenda"
-                    >
-                      <PencilLine size={16} />
-                    </button>
-                    <button
-                      onClick={deletePost}
-                      className="h-9 w-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-rose-200 hover:bg-white/10 transition-colors"
-                      aria-label="Excluir post"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </>
+                    {(session?.user?.id === c.user_id || isOwner) && !c.id.startsWith("optimistic-") && (
+                      <button
+                        onClick={() => deleteComment(c.id)}
+                        className="h-9 w-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-200 hover:bg-white/10 transition-colors"
+                        aria-label="Excluir comentário"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {comments.length === 0 && (
+                  <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 text-center">
+                    <div className="text-xs font-extrabold text-white">Sem comentários ainda</div>
+                    <div className="mt-1 text-[11px] text-gray-400">Seja o primeiro a comentar.</div>
+                  </div>
                 )}
-                <button
-                  className="h-9 w-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-200 hover:bg-white/10 transition-colors"
-                  aria-label="Mais"
-                >
-                  <MoreHorizontal size={16} />
-                </button>
               </div>
-            </div>
+            </ScrollArea>
+          </div>
 
-            {editingCaption && isOwner && (
-              <div className="px-5 py-4 border-b border-white/10 bg-black/30">
-                <div className="text-xs font-bold text-gray-200 mb-2">Editar legenda</div>
+          {/* Edit caption */}
+          {editingCaption && isOwner && (
+            <div className="px-5 pb-4">
+              <div className="rounded-[1.75rem] border border-white/10 bg-black/30 p-4">
+                <div className="text-xs font-extrabold text-white">Editar legenda</div>
                 <Textarea
                   value={captionDraft}
                   onChange={(e) => setCaptionDraft(e.target.value)}
-                  className="min-h-[86px] rounded-2xl bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500"
+                  className="mt-3 min-h-[88px] rounded-2xl bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500 focus-visible:ring-violet-500/30"
                   placeholder="Escreva uma legenda..."
                 />
                 <div className="mt-3 flex justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    className="rounded-full"
-                    onClick={() => setEditingCaption(false)}
-                  >
+                  <Button variant="ghost" className="rounded-full" onClick={() => setEditingCaption(false)}>
                     Cancelar
                   </Button>
-                  <Button
-                    className="rounded-full bg-violet-600 hover:bg-violet-600/90 text-white"
-                    onClick={saveCaption}
-                  >
+                  <Button className="rounded-full bg-violet-600 hover:bg-violet-600/90 text-white" onClick={saveCaption}>
                     Salvar
                   </Button>
                 </div>
               </div>
-            )}
-
-            <div className={cn("flex-1", isMobile ? "min-h-[36vh]" : "min-h-0")}>
-              <ScrollArea className={cn("h-full", isMobile ? "max-h-[36vh]" : "")}> 
-                <div className="px-5 py-4 space-y-3">
-                  {comments.map((c) => (
-                    <div
-                      key={c.id}
-                      className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-3"
-                    >
-                      <img
-                        src={
-                          c.user.avatar_url ||
-                          "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100"
-                        }
-                        className="w-9 h-9 rounded-full object-cover border border-white/10"
-                        alt=""
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="text-xs font-extrabold text-white">{c.user.name}</div>
-                          <div className="text-[10px] text-gray-500">{timeAgo(c.created_at)}</div>
-                        </div>
-                        <div className="text-xs text-gray-200 mt-0.5 whitespace-pre-wrap">{c.text}</div>
-                      </div>
-                      {(session?.user?.id === c.user_id || isOwner) && !c.id.startsWith("optimistic-") && (
-                        <button
-                          onClick={() => deleteComment(c.id)}
-                          className="h-8 w-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-200 hover:bg-white/10 transition-colors"
-                          aria-label="Excluir comentário"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
             </div>
+          )}
 
-            <div className="px-5 py-4 border-t border-white/10 bg-black/30">
-              <div className="text-[10px] text-gray-500 mb-2">{timeAgo(post.created_at)}</div>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      submitComment();
-                    }
-                  }}
-                  className="rounded-full bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500"
-                  placeholder="Adicionar comentário..."
-                />
-                <Button
-                  onClick={submitComment}
-                  className="rounded-full bg-cyan-500/90 hover:bg-cyan-500 text-black font-black"
-                >
-                  Enviar
-                </Button>
-              </div>
+          {/* Composer */}
+          <div className="px-5 py-4 border-t border-white/10 bg-black/30">
+            <div className="text-[10px] text-gray-500 mb-2">{timeAgo(post.created_at)}</div>
+            <div className="flex items-center gap-2">
+              <Input
+                ref={commentInputRef}
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submitComment();
+                  }
+                }}
+                className="h-11 rounded-full bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500"
+                placeholder="Adicionar comentário..."
+              />
+              <Button
+                onClick={submitComment}
+                className="h-11 rounded-full bg-cyan-500/90 hover:bg-cyan-500 text-black font-black"
+              >
+                Enviar
+              </Button>
             </div>
           </div>
         </div>
