@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import BottomNav from "@/components/layout/BottomNav";
+import MessagesLauncher from "@/components/chat/MessagesLauncher";
 import { ChevronLeft, MapPin, MessageCircle } from "lucide-react";
 
 type PublicProfile = {
@@ -155,6 +156,8 @@ const UserProfile = () => {
           </div>
         </div>
       </main>
+
+      <MessagesLauncher />
 
       <BottomNav />
     </div>

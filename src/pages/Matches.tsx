@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import MatchChatSheet from '@/components/chat/MatchChatSheet';
+import MessagesLauncher from '@/components/chat/MessagesLauncher';
 import FusionActionBar, { FusionAction } from '@/components/matches/FusionActionBar';
 import FusionConfirmedDialog from '@/components/matches/FusionConfirmedDialog';
 import SuperFusionDialog from '@/components/matches/SuperFusionDialog';
@@ -325,6 +326,8 @@ const Matches = () => {
         matchId={activeMatchId}
         otherUser={activeOther}
       />
+
+      <MessagesLauncher />
 
       <BottomNav />
     </div>
