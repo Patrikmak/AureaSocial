@@ -325,7 +325,7 @@ export default function ProfilePostModal({
   const openComposer = () => {
     setComposerOpen(true);
     commentsAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => commentInputRef.current?.focus(), 200);
+    window.setTimeout(() => commentInputRef.current?.focus(), 220);
   };
 
   const share = async () => {
@@ -333,7 +333,6 @@ export default function ProfilePostModal({
 
     const url = post.media_url;
     try {
-      // Prefer Web Share API when available
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const nav: any = navigator;
       if (nav.share) {
@@ -516,112 +515,111 @@ export default function ProfilePostModal({
             </>
           )}
 
-          {/* Media */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={onMediaClick}
-              onTouchStart={onMediaTouchStart}
-              onTouchEnd={onMediaTouchEnd}
-              className="relative block w-full"
-              aria-label="Mídia do post"
-            >
-              <div className="relative aspect-[4/5]">
-                <img src={post.media_url} alt="" className="h-full w-full object-cover" draggable={false} />
-                <div className="absolute inset-0 bg-black/10" />
-                <div className="absolute inset-x-0 bottom-0 h-28 bg-black/55" />
+          {/* Media (must not be a button because it contains buttons inside) */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onMediaClick}
+            onTouchStart={onMediaTouchStart}
+            onTouchEnd={onMediaTouchEnd}
+            className="relative block w-full cursor-pointer select-none"
+            aria-label="Mídia do post"
+          >
+            <div className="relative aspect-[4/5]">
+              <img src={post.media_url} alt="" className="h-full w-full object-cover" draggable={false} />
+              <div className="absolute inset-0 bg-black/10" />
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-black/55" />
 
-                <AnimatePresence>
-                  {doubleTapHeart && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.7 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                      className="absolute inset-0 flex items-center justify-center"
-                    >
-                      <div className="h-20 w-20 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center">
-                        <Heart className="h-10 w-10 text-white" fill="currentColor" strokeWidth={0} />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Bottom overlay content */}
-                <div className="absolute bottom-4 left-5 right-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-xs font-semibold text-gray-200">
-                      <span className="text-white">{compactCount(likesCount)}</span> Farms
+              <AnimatePresence>
+                {doubleTapHeart && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 22 }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <div className="h-20 w-20 rounded-full bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-center">
+                      <Heart className="h-10 w-10 text-white" fill="currentColor" strokeWidth={0} />
                     </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleLike();
-                        }}
-                        className={cn(
-                          "h-10 w-10 rounded-full border border-white/15 backdrop-blur-md flex items-center justify-center transition-colors",
-                          liked ? "bg-rose-500/18 text-rose-200" : "bg-white/10 text-gray-100 hover:bg-white/15"
-                        )}
-                        aria-label={liked ? "Descurtir" : "Curtir"}
-                      >
-                        <Heart size={18} fill={liked ? "currentColor" : "none"} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          openComposer();
-                        }}
-                        className="h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-gray-100 hover:bg-white/15 transition-colors"
-                        aria-label="Comentários"
-                      >
-                        <MessageCircle size={18} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          share();
-                        }}
-                        className="h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-gray-100 hover:bg-white/15 transition-colors"
-                        aria-label="Compartilhar"
-                      >
-                        <Share2 size={18} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleSave();
-                        }}
-                        className={cn(
-                          "h-10 w-10 rounded-full border border-white/15 backdrop-blur-md flex items-center justify-center transition-colors",
-                          saved ? "bg-cyan-500/18 text-cyan-100" : "bg-white/10 text-gray-100 hover:bg-white/15"
-                        )}
-                        aria-label={saved ? "Remover dos salvos" : "Salvar"}
-                      >
-                        <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
-                      </button>
-                    </div>
+              {/* Bottom overlay content */}
+              <div className="absolute bottom-4 left-5 right-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-semibold text-gray-200">
+                    <span className="text-white">{compactCount(likesCount)}</span> Farms
                   </div>
 
-                  <div className="mt-4 text-sm text-gray-200">
-                    <span className="font-extrabold text-white mr-2">{post.user.name}</span>
-                    {post.caption}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleLike();
+                      }}
+                      className={cn(
+                        "h-10 w-10 rounded-full border border-white/15 backdrop-blur-md flex items-center justify-center transition-colors",
+                        liked ? "bg-rose-500/18 text-rose-200" : "bg-white/10 text-gray-100 hover:bg-white/15"
+                      )}
+                      aria-label={liked ? "Descurtir" : "Curtir"}
+                    >
+                      <Heart size={18} fill={liked ? "currentColor" : "none"} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openComposer();
+                      }}
+                      className="h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-gray-100 hover:bg-white/15 transition-colors"
+                      aria-label="Comentários"
+                    >
+                      <MessageCircle size={18} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        share();
+                      }}
+                      className="h-10 w-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-gray-100 hover:bg-white/15 transition-colors"
+                      aria-label="Compartilhar"
+                    >
+                      <Share2 size={18} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleSave();
+                      }}
+                      className={cn(
+                        "h-10 w-10 rounded-full border border-white/15 backdrop-blur-md flex items-center justify-center transition-colors",
+                        saved ? "bg-cyan-500/18 text-cyan-100" : "bg-white/10 text-gray-100 hover:bg-white/15"
+                      )}
+                      aria-label={saved ? "Remover dos salvos" : "Salvar"}
+                    >
+                      <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
+                    </button>
                   </div>
                 </div>
+
+                <div className="mt-4 text-sm text-gray-200">
+                  <span className="font-extrabold text-white mr-2">{post.user.name}</span>
+                  {post.caption}
+                </div>
               </div>
-            </button>
+            </div>
           </div>
 
           {/* Comments */}
@@ -632,9 +630,74 @@ export default function ProfilePostModal({
             </div>
           </div>
 
-          <div className={cn("px-3 pb-3", isMobile ? "" : "")}>
-            <ScrollArea className={cn(isMobile ? "h-[32vh]" : "h-[340px]")}>
+          <div className={cn("px-3 pb-5", isMobile ? "" : "")}>
+            <ScrollArea className={cn(isMobile ? "h-[38vh]" : "h-[360px]")}
+            >
               <div className="px-2 pt-4 space-y-3">
+                {/* Composer in the comments area (yellow region) */}
+                <AnimatePresence initial={false} mode="wait">
+                  {composerOpen ? (
+                    <motion.div
+                      key="composer-open"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.16, ease: "easeOut" }}
+                      className="flex items-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-4"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-white/5 border border-white/10" />
+                      <div className="flex-1 min-w-0">
+                        <Input
+                          ref={commentInputRef}
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              submitComment();
+                            }
+                          }}
+                          className="h-11 rounded-full bg-black/20 border-white/10 text-gray-100 placeholder:text-gray-500"
+                          placeholder="Adicionar comentário..."
+                        />
+                      </div>
+                      <Button
+                        onClick={submitComment}
+                        className="h-11 rounded-full bg-cyan-500/90 hover:bg-cyan-500 text-black font-black"
+                      >
+                        Enviar
+                      </Button>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="composer-closed"
+                      type="button"
+                      onClick={openComposer}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.16, ease: "easeOut" }}
+                      className={cn(
+                        "w-full rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-4",
+                        "flex items-center justify-between gap-3",
+                        "hover:bg-white/7 transition-colors"
+                      )}
+                      aria-label="Abrir caixa de comentário"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 rounded-full bg-white/5 border border-white/10 grid place-items-center">
+                          <MessageCircle className="h-4 w-4 text-violet-200" />
+                        </div>
+                        <div className="min-w-0 text-left">
+                          <div className="truncate text-xs font-extrabold text-white">Adicionar comentário</div>
+                          <div className="truncate text-[11px] text-gray-400">Toque para escrever</div>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[11px] font-extrabold text-cyan-200">Comentar</span>
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
                 {comments.map((c) => (
                   <div
                     key={c.id}
@@ -666,7 +729,7 @@ export default function ProfilePostModal({
                   </div>
                 ))}
 
-                {comments.length === 0 && (
+                {comments.length === 0 && !composerOpen && (
                   <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 text-center">
                     <div className="text-xs font-extrabold text-white">Sem comentários ainda</div>
                     <div className="mt-1 text-[11px] text-gray-400">Seja o primeiro a comentar.</div>
@@ -699,66 +762,9 @@ export default function ProfilePostModal({
             </div>
           )}
 
-          {/* Composer */}
+          {/* Footer */}
           <div className="px-5 py-4 border-t border-white/10 bg-black/30">
-            <div className="text-[10px] text-gray-500 mb-2">{timeAgo(post.created_at)}</div>
-
-            <AnimatePresence initial={false} mode="wait">
-              {composerOpen ? (
-                <motion.div
-                  key="composer-open"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ duration: 0.16, ease: "easeOut" }}
-                  className="flex items-center gap-2"
-                >
-                  <Input
-                    ref={commentInputRef}
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        submitComment();
-                      }
-                    }}
-                    className="h-11 rounded-full bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500"
-                    placeholder="Adicionar comentário..."
-                  />
-                  <Button
-                    onClick={submitComment}
-                    className="h-11 rounded-full bg-cyan-500/90 hover:bg-cyan-500 text-black font-black"
-                  >
-                    Enviar
-                  </Button>
-                </motion.div>
-              ) : (
-                <motion.button
-                  key="composer-closed"
-                  type="button"
-                  onClick={openComposer}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ duration: 0.16, ease: "easeOut" }}
-                  className={cn(
-                    "w-full h-11 rounded-full",
-                    "bg-white/5 border border-white/10",
-                    "text-left px-4",
-                    "flex items-center justify-between",
-                    "hover:bg-white/8 transition-colors"
-                  )}
-                  aria-label="Abrir caixa de comentário"
-                >
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <MessageCircle className="h-4 w-4 text-violet-200" />
-                    <span className="text-sm">Adicionar comentário…</span>
-                  </div>
-                  <span className="text-[11px] font-extrabold text-cyan-200">Comentar</span>
-                </motion.button>
-              )}
-            </AnimatePresence>
+            <div className="text-[10px] text-gray-500">{timeAgo(post.created_at)}</div>
           </div>
         </div>
       </DialogContent>
