@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Bookmark,
   ChevronLeft,
   ChevronRight,
   Heart,
@@ -94,6 +95,8 @@ export default function ProfilePostModal({
 
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
+  const [saved, setSaved] = useState(false);
+
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [doubleTapHeart, setDoubleTapHeart] = useState(false);
@@ -129,8 +132,18 @@ export default function ProfilePostModal({
           .maybeSingle();
         if (cancelled) return;
         setLiked(Boolean(likeRow));
+
+        const { data: saveRow } = await supabase
+          .from("post_saves")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .eq("post_id", postId)
+          .maybeSingle();
+        if (cancelled) return;
+        setSaved(Boolean(saveRow));
       } else {
         setLiked(false);
+        setSaved(false);
       }
 
       const { count } = await supabase
@@ -225,6 +238,33 @@ export default function ProfilePostModal({
     }
   };
 
+  const toggleSave = async () => {
+    if (!session?.user || !postId) return;
+
+    const nextSaved = !saved;
+    setSaved(nextSaved);
+
+    if (nextSaved) {
+      const { error } = await supabase.from("post_saves").insert({ user_id: session.user.id, post_id: postId });
+      if (error) {
+        setSaved(false);
+        showError("Não foi possível salvar");
+      }
+      return;
+    }
+
+    const { error } = await supabase
+      .from("post_saves")
+      .delete()
+      .eq("user_id", session.user.id)
+      .eq("post_id", postId);
+
+    if (error) {
+      setSaved(true);
+      showError("Não foi possível remover dos salvos");
+    }
+  };
+
   const likeIfNeededWithAnimation = async () => {
     if (!session?.user) return;
     triggerBigHeart();
@@ -281,11 +321,25 @@ export default function ProfilePostModal({
 
   const share = async () => {
     if (!post?.media_url) return;
+
+    const url = post.media_url;
     try {
-      await navigator.clipboard.writeText(post.media_url);
+      // Prefer Web Share API when available
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nav: any = navigator;
+      if (nav.share) {
+        await nav.share({
+          title: "Aurēa",
+          text: post.caption ?? "",
+          url,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
       showSuccess("Link copiado");
     } catch {
-      showError("Não foi possível copiar o link");
+      showError("Não foi possível compartilhar");
     }
   };
 
@@ -319,6 +373,7 @@ export default function ProfilePostModal({
 
     if (error || !data) {
       setComments((c) => c.filter((x) => x.id !== optimistic.id));
+      showError("Não foi possível comentar");
       return;
     }
 
@@ -532,6 +587,22 @@ export default function ProfilePostModal({
                       >
                         <Share2 size={18} />
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleSave();
+                        }}
+                        className={cn(
+                          "h-10 w-10 rounded-full border border-white/15 backdrop-blur-md flex items-center justify-center transition-colors",
+                          saved ? "bg-cyan-500/18 text-cyan-100" : "bg-white/10 text-gray-100 hover:bg-white/15"
+                        )}
+                        aria-label={saved ? "Remover dos salvos" : "Salvar"}
+                      >
+                        <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
+                      </button>
                     </div>
                   </div>
 
@@ -552,10 +623,8 @@ export default function ProfilePostModal({
             </div>
           </div>
 
-          <div className={cn("px-3 pb-3", isMobile ? "" : "")}
-          >
-            <ScrollArea className={cn(isMobile ? "h-[32vh]" : "h-[340px]")}
-            >
+          <div className={cn("px-3 pb-3", isMobile ? "" : "")}>
+            <ScrollArea className={cn(isMobile ? "h-[32vh]" : "h-[340px]")}>
               <div className="px-2 pt-4 space-y-3">
                 {comments.map((c) => (
                   <div
