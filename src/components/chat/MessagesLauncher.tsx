@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import MessagesOverlay from "@/components/chat/MessagesOverlay";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export type MessagesLauncherProps = {
   unreadCount?: number;
@@ -13,7 +14,11 @@ export default function MessagesLauncher({
   unreadCount = 12,
   avatars,
 }: MessagesLauncherProps) {
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
+
+  // Mobile: o acesso às mensagens de fusões acontece via ícone no header (sem overlay/flutuante).
+  if (isMobile) return null;
 
   const fallbackAvatars = useMemo(
     () => [

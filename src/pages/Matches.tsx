@@ -71,6 +71,13 @@ export default function Matches() {
 
   const activeCount = items.length;
 
+  // Query: /matches?tab=mensagens
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const t = params.get("tab");
+    if (t === "mensagens" || t === "fusoes") setTab(t);
+  }, [location.search]);
+
   const openChat = (it: FusionItem) => {
     setActiveMatchId(it.matchId);
     setActiveOther(it.other);

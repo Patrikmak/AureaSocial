@@ -6,10 +6,14 @@ import VibesBar from '@/components/feed/VibesBar';
 import VibeCard from '@/components/feed/VibeCard';
 import MessagesLauncher from '@/components/chat/MessagesLauncher';
 
-import { Bell, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Bell, Sparkles, MessageCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Index = () => {
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+
   const posts = [
     {
       id: 1,
@@ -39,8 +43,18 @@ const Index = () => {
             Aurēa
           </h1>
         </div>
-        <div className="flex gap-4">
-          <Link to="/notifications" className="relative p-2 hover:bg-white/5 rounded-full transition-colors">
+        <div className="flex gap-2 items-center">
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => navigate('/matches?tab=mensagens')}
+              className="p-2 hover:bg-white/5 active:bg-white/10 rounded-full transition-colors"
+              aria-label="Abrir mensagens de fusões"
+            >
+              <MessageCircle size={22} className="text-violet-300" />
+            </button>
+          )}
+          <Link to="/notifications" className="relative p-2 hover:bg-white/5 active:bg-white/10 rounded-full transition-colors">
             <Bell size={22} />
             <span className="absolute top-2 right-2 w-2 h-2 bg-violet-500 rounded-full border-2 border-black" />
           </Link>
