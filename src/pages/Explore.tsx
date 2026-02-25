@@ -90,29 +90,73 @@ const Matches = () => {
     let cancelled = false;
 
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id,first_name,username,avatar_url,location')
-        .neq('id', session.user.id)
-        .limit(30);
+      // 1) Perfis com fusão confirmada não podem aparecer no Descobrir
+      const { data: matchesData } = await supabase
+        .from("matches")
+        .select("id,user_low,user_high")
+        .or(`user_low.eq.${session.user.id},user_high.eq.${session.user.id}`);
 
       if (cancelled) return;
+
+      const matchedOtherIds = new Set<string>();
+      (matchesData ?? []).forEach((m: any) => {
+        const otherId = m.user_low === session.user.id ? m.user_high : m.user_low;
+        if (otherId) matchedOtherIds.add(otherId);
+      });
+
+      // 2) Perfis desfusionados (pass) somem por 24h
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: passes } = await supabase
+        .from("swipes")
+        .select("target_id,created_at")
+        .eq("swiper_id", session.user.id)
+        .eq("direction", "pass")
+        .gt("created_at", cutoff);
+
+      if (cancelled) return;
+
+      const cooldownIds = new Set<string>();
+      (passes ?? []).forEach((p: any) => {
+        if (p.target_id) cooldownIds.add(p.target_id as string);
+      });
+
+      const excludeIds = Array.from(new Set([session.user.id, ...matchedOtherIds, ...cooldownIds]));
+      const excludeFilter = excludeIds.length ? `(${excludeIds.join(",")})` : null;
+
+      const q = supabase
+        .from("profiles")
+        .select("id,first_name,username,avatar_url,location")
+        .neq("id", session.user.id)
+        .limit(80);
+
+      // Best-effort server-side filtering (client also filters)
+      const { data } = excludeFilter ? await q.not("id", "in", excludeFilter) : await q;
+
+      if (cancelled) return;
+
       const rows = (data ?? []) as ProfileRow[];
-      setCandidates(rows.map((p) => ({ id: p.id, profile: p })));
+      const filtered = rows
+        .filter((p) => p.id !== session.user.id)
+        .filter((p) => !matchedOtherIds.has(p.id))
+        .filter((p) => !cooldownIds.has(p.id))
+        .slice(0, 30);
+
+      setCandidates(filtered.map((p) => ({ id: p.id, profile: p })));
       setIndex(0);
 
-      const ids = rows.map((r) => r.id);
+      // Destaque de Superfusão recebida (apenas entre candidatos visíveis)
+      const ids = filtered.map((r) => r.id);
       if (!ids.length) {
         setReceivedSuperfusionIds(new Set());
         return;
       }
 
       const { data: incoming } = await supabase
-        .from('swipes')
-        .select('swiper_id')
-        .eq('target_id', session.user.id)
-        .eq('direction', 'superlike')
-        .in('swiper_id', ids);
+        .from("swipes")
+        .select("swiper_id")
+        .eq("target_id", session.user.id)
+        .eq("direction", "superlike")
+        .in("swiper_id", ids);
 
       if (cancelled) return;
       setReceivedSuperfusionIds(new Set((incoming ?? []).map((r: any) => r.swiper_id as string)));
@@ -169,6 +213,8 @@ const Matches = () => {
       swiper_id: session.user.id,
       target_id: targetId,
       direction,
+      // created_at funciona como nosso "cooldownUntil" (created_at + 24h) para desfusão.
+      created_at: new Date().toISOString(),
     });
   };
 
@@ -228,7 +274,9 @@ const Matches = () => {
     }
 
     setBusy(true);
-    setLastAction({ candidate: current, action: swipeDir });
+
+    // Regra obrigatória: perfis desfusionados (pass) não podem reaparecer — portanto, sem "voltar".
+    setLastAction(swipeDir === 'pass' ? null : { candidate: current, action: swipeDir });
 
     await upsertSwipe(current.id, swipeDir);
     await animateOut(swipeDir);
@@ -244,6 +292,7 @@ const Matches = () => {
       if (swipeDir === 'like' && reciprocalLike) {
         const matchId = await createMatchIfNeeded(current.id);
         await upsertMatchKind(matchId, "fusao");
+        setLastAction(null);
         setActiveMatchId(matchId);
         setActiveOther(current.profile);
         setChatFusionKind("fusao");
@@ -253,6 +302,7 @@ const Matches = () => {
       if (swipeDir === 'superlike' && reciprocalSuper) {
         const matchId = await createMatchIfNeeded(current.id);
         await upsertMatchKind(matchId, "superfusao");
+        setLastAction(null);
         setActiveMatchId(matchId);
         setActiveOther(current.profile);
         setChatFusionKind("superfusao");
