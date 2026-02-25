@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import BottomNav from '@/components/layout/BottomNav';
-import { MessageCircle, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -234,13 +234,6 @@ const Matches = () => {
       <header className="px-6 py-6 flex justify-between items-center">
         <h1 className="text-2xl font-black tracking-tight">DESCUBRA</h1>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setChatOpen(true)}
-            className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
-            aria-label="Abrir mensagens"
-          >
-            <MessageCircle size={18} className="text-cyan-300" />
-          </button>
           <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
             <Star size={20} className="text-yellow-500" />
           </div>
