@@ -27,8 +27,9 @@ export default function ItsAMatchDialog({
               <Sparkles className="text-violet-200" size={22} />
             </div>
             <div className="text-center">
-              <div className="text-[10px] uppercase tracking-[0.3em] text-gray-400">Deu match</div>
-              <div className="text-3xl font-black tracking-tight mt-1">É um match!</div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-gray-400">Fusão</div>
+              <div className="text-3xl font-black tracking-tight mt-1">Fusão confirmada</div>
+
             </div>
           </div>
 

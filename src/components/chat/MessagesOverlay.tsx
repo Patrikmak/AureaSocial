@@ -328,7 +328,8 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                       <div className="p-5 rounded-2xl border border-white/10 bg-white/5">
                         <div className="text-sm font-extrabold text-white">Nenhuma conversa ainda</div>
                         <div className="text-xs text-gray-400 mt-1">
-                          Quando você der match, suas mensagens aparecem aqui.
+                          Quando você fizer uma fusão, suas mensagens aparecem aqui.
+
                         </div>
                       </div>
                     ) : (
@@ -411,7 +412,8 @@ export default function MessagesOverlay({ open, onOpenChange, unreadCount }: Mes
                           <div className="truncate text-sm font-extrabold text-white">
                             {active?.otherUser.first_name || active?.otherUser.username || "Conversa"}
                           </div>
-                          <div className="text-[10px] text-gray-400">Match</div>
+                          <div className="text-[10px] text-gray-400">Fusão</div>
+
                         </div>
                       </div>
                     </div>

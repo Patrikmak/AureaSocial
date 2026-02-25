@@ -12,7 +12,8 @@ const BottomNav = () => {
     { icon: Home, path: '/', label: 'Feed' },
     { icon: Search, path: '/explore', label: 'Explorar' },
     { icon: PlusSquare, path: '/create', label: 'Postar' },
-    { icon: Heart, path: '/matches', label: 'Matches' },
+    { icon: Heart, path: '/matches', label: 'Fusões' },
+
     { icon: User, path: '/profile', label: 'Perfil' },
   ];
 

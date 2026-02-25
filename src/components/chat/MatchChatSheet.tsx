@@ -113,7 +113,8 @@ export default function MatchChatSheet({
               </Avatar>
               <div className="flex-1">
                 <SheetTitle className="text-base font-black tracking-tight text-white">{title}</SheetTitle>
-                <div className="text-[10px] text-gray-400">Match</div>
+                <div className="text-[10px] text-gray-400">Fusão</div>
+
               </div>
               <div className="h-1.5 w-12 rounded-full bg-white/10" />
             </div>

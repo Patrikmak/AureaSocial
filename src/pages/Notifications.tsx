@@ -21,9 +21,11 @@ const Notifications = () => {
     },
     {
       id: 2,
-      type: 'match',
+      type: 'fusao',
+
       user: { name: 'Sophia', username: 'sophia' },
-      content: 'Novo match! Diga oi.',
+      content: 'Nova fusão! Diga oi.',
+
       time: '1h',
       avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100',
     },

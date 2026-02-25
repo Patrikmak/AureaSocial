@@ -51,8 +51,9 @@ export default function ChatSheet({
         <div className="px-5 py-5">
           <div className="space-y-3">
             <div className="max-w-[85%] rounded-2xl rounded-tl-md bg-white/5 border border-white/10 px-4 py-3 text-sm text-gray-200">
-              Oi! Vi que deu match 😊
+              Oi! Vi que rolou uma fusão 😊
             </div>
+
             <div className="ml-auto max-w-[85%] rounded-2xl rounded-tr-md bg-violet-600/90 border border-white/10 px-4 py-3 text-sm text-white">
               Oi! Bora conversar.
             </div>

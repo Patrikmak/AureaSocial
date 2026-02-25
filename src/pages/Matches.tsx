@@ -200,7 +200,8 @@ const Matches = () => {
     window.setTimeout(async () => {
       nextCard();
 
-      // Match logic
+      // Fusão logic
+
       const reciprocalLike = await hasReciprocal(current.id, 'like');
       const reciprocalSuper = await hasReciprocal(current.id, 'superlike');
 

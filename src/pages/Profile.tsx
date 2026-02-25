@@ -30,7 +30,7 @@ const Profile = () => {
   const stats = [
     { label: 'Posts', value: '128' },
     { label: 'Farms', value: '12.4k' },
-    { label: 'Matches', value: '452' },
+    { label: 'Fusões', value: '452' },
 
   ];
 
