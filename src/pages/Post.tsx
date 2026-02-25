@@ -161,7 +161,8 @@ const PostPage = () => {
               <div className="absolute bottom-5 left-5 right-5">
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold text-gray-200">
-                    <span className="text-white">{post.likes}</span> vibes
+                    <span className="text-white">{post.likes}</span> Farms
+
                   </div>
                   <div className="flex items-center gap-3">
                     <button className="w-10 h-10 rounded-full bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-violet-200 hover:text-violet-100 hover:bg-white/15 transition-colors">

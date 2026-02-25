@@ -136,9 +136,10 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
               "w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center transition-colors " +
               (liked ? "text-rose-300 bg-rose-500/15" : "text-white hover:bg-rose-500/20 hover:text-rose-300")
             }
-            aria-label={liked ? 'Descurtir' : 'Curtir'}
+            aria-label={liked ? 'Desfarmar' : 'Farmar'}
             disabled={!hydrated && Boolean(session?.user)}
           >
+
             <Heart size={24} fill={liked ? 'currentColor' : 'none'} />
           </button>
           <button className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-violet-500/20 hover:text-violet-300 transition-colors">
@@ -157,7 +158,8 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
                 "transition-transform hover:scale-110 disabled:opacity-60 disabled:hover:scale-100 " +
                 (liked ? "text-rose-300" : "text-violet-300")
               }
-              aria-label={liked ? 'Descurtir' : 'Curtir'}
+              aria-label={liked ? 'Desfarmar' : 'Farmar'}
+
               disabled={!hydrated && Boolean(session?.user)}
             >
               <Heart size={24} fill={liked ? 'currentColor' : 'none'} />
@@ -167,7 +169,8 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
           </div>
           <Bookmark className="text-gray-300 cursor-pointer" size={24} />
         </div>
-        <p className="text-sm text-white font-medium mb-1">{formatCompactCount(likesCount)} vibes</p>
+        <p className="text-sm text-white font-medium mb-1">{formatCompactCount(likesCount)} Farms</p>
+
         <p className="text-sm text-gray-300">
           <span className="font-bold text-white mr-2">{user.name}</span>
           {caption}

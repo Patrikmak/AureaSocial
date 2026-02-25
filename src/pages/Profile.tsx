@@ -29,8 +29,9 @@ const Profile = () => {
 
   const stats = [
     { label: 'Posts', value: '128' },
-    { label: 'Vibes', value: '12.4k' },
+    { label: 'Farms', value: '12.4k' },
     { label: 'Matches', value: '452' },
+
   ];
 
   const gridImages = [

@@ -13,7 +13,8 @@ const Notifications = () => {
       id: 1,
       type: 'like',
       user: { name: 'Luna Estelar', username: 'luna.estelar' },
-      content: 'curtiu sua foto.',
+      content: 'farmou sua foto.',
+
       time: '2m',
       avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
       postId: '1',
