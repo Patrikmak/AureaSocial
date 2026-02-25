@@ -271,14 +271,14 @@ const Matches = () => {
 
   useEffect(() => {
     if (!matchOpen) return;
-    const t = window.setTimeout(() => startChat("fusao"), 650);
+    const t = window.setTimeout(() => startChat("fusao"), 8000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchOpen]);
 
   useEffect(() => {
     if (!superMatchOpen) return;
-    const t = window.setTimeout(() => startChat("superfusao"), 900);
+    const t = window.setTimeout(() => startChat("superfusao"), 8000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [superMatchOpen]);
