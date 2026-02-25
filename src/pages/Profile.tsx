@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import ProfilePostModal, { ProfilePost } from '@/components/profile/ProfilePostModal';
+import { cn } from '@/lib/utils';
 
 function formatCompactCount(n: number) {
   if (n >= 1_000_000) {
@@ -20,11 +21,20 @@ function formatCompactCount(n: number) {
   return `${n}`;
 }
 
+type Tab = 'posts' | 'saved';
+
 const Profile = () => {
   const { session } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+
+  const [tab, setTab] = useState<Tab>('posts');
+
   const [posts, setPosts] = useState<ProfilePost[]>([]);
+  const [savedPosts, setSavedPosts] = useState<ProfilePost[]>([]);
+
   const [farmsTotal, setFarmsTotal] = useState(0);
+  const [fusionsCount, setFusionsCount] = useState(0);
+
   const [openPost, setOpenPost] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [gridScrollY, setGridScrollY] = useState<number | null>(null);
@@ -33,9 +43,58 @@ const Profile = () => {
     if (session?.user) {
       fetchProfile();
       fetchPosts();
+      fetchFusionsCount();
+      fetchSavedPosts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // Real-time: fusões e salvos
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const userId = session.user.id;
+
+    const matchesLow = supabase
+      .channel(`profile_matches_low:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'matches', filter: `user_low=eq.${userId}` },
+        () => {
+          fetchFusionsCount();
+        }
+      )
+      .subscribe();
+
+    const matchesHigh = supabase
+      .channel(`profile_matches_high:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'matches', filter: `user_high=eq.${userId}` },
+        () => {
+          fetchFusionsCount();
+        }
+      )
+      .subscribe();
+
+    const saves = supabase
+      .channel(`profile_post_saves:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'post_saves', filter: `user_id=eq.${userId}` },
+        () => {
+          fetchSavedPosts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(matchesLow);
+      supabase.removeChannel(matchesHigh);
+      supabase.removeChannel(saves);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
 
   const fetchProfile = async () => {
     const { data } = await supabase
@@ -61,6 +120,18 @@ const Profile = () => {
     setFarmsTotal(count ?? 0);
   };
 
+  const fetchFusionsCount = async () => {
+    if (!session?.user) return;
+    const userId = session.user.id;
+
+    const { count } = await supabase
+      .from('matches')
+      .select('id', { count: 'exact', head: true })
+      .or(`user_low.eq.${userId},user_high.eq.${userId}`);
+
+    setFusionsCount(count ?? 0);
+  };
+
   const fetchPosts = async () => {
     if (!session?.user) return;
 
@@ -83,6 +154,53 @@ const Profile = () => {
 
     setPosts(mapped);
     await fetchFarmsTotal((rows ?? []).map((p: any) => String(p.id)));
+  };
+
+  const fetchSavedPosts = async () => {
+    if (!session?.user) return;
+
+    const { data: saves } = await supabase
+      .from('post_saves')
+      .select('post_id,created_at')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    const postIds = (saves ?? []).map((s: any) => s.post_id as string).filter(Boolean);
+    if (!postIds.length) {
+      setSavedPosts([]);
+      return;
+    }
+
+    const { data: rows } = await supabase
+      .from('posts')
+      .select('id,user_id,media_url,caption,location,created_at')
+      .in('id', postIds);
+
+    const owners = Array.from(new Set((rows ?? []).map((r: any) => r.user_id)));
+    const { data: ownerProfiles } = owners.length
+      ? await supabase.from('profiles').select('id,first_name,username,avatar_url').in('id', owners)
+      : { data: [] as any[] };
+
+    const byId = new Map((ownerProfiles ?? []).map((p: any) => [p.id, p] as const));
+
+    const byPostId = new Map((rows ?? []).map((p: any) => [String(p.id), p] as const));
+    const ordered = postIds
+      .map((id) => {
+        const p = byPostId.get(String(id));
+        if (!p) return null;
+        const owner = byId.get(p.user_id);
+        return {
+          ...p,
+          user: {
+            name: owner?.first_name || owner?.username || 'Perfil',
+            username: owner?.username || '',
+            avatar_url: owner?.avatar_url ?? null,
+          },
+        } as ProfilePost;
+      })
+      .filter(Boolean) as ProfilePost[];
+
+    setSavedPosts(ordered);
   };
 
   useEffect(() => {
@@ -111,10 +229,12 @@ const Profile = () => {
     () => [
       { label: 'Posts', value: String(posts.length || 0) },
       { label: 'Farms', value: formatCompactCount(farmsTotal) },
-      { label: 'Fusões', value: '452' },
+      { label: 'Fusões', value: String(fusionsCount) },
     ],
-    [posts.length, farmsTotal]
+    [posts.length, farmsTotal, fusionsCount]
   );
+
+  const activePosts = tab === 'posts' ? posts : savedPosts;
 
   const openAt = (i: number) => {
     setGridScrollY(window.scrollY);
@@ -140,7 +260,10 @@ const Profile = () => {
 
   const onCaptionUpdated = (postId: string, caption: string | null) => {
     setPosts((p) => p.map((x) => (x.id === postId ? { ...x, caption } : x)));
+    setSavedPosts((p) => p.map((x) => (x.id === postId ? { ...x, caption } : x)));
   };
+
+  const modalIsOwner = Boolean(activePosts[activeIndex]?.user_id && session?.user?.id && activePosts[activeIndex]?.user_id === session.user.id);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32">
@@ -222,29 +345,53 @@ const Profile = () => {
 
         {/* Tabs */}
         <div className="flex justify-around border-b border-white/5 mb-1">
-          <button className="pb-4 border-b-2 border-violet-500 text-violet-400 flex-1 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setTab('posts')}
+            className={cn(
+              'pb-4 flex-1 flex justify-center transition-colors',
+              tab === 'posts' ? 'border-b-2 border-violet-500 text-violet-400' : 'text-gray-600'
+            )}
+            aria-label="Ver posts"
+          >
             <Grid size={20} />
           </button>
-          <button className="pb-4 text-gray-600 flex-1 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setTab('saved')}
+            className={cn(
+              'pb-4 flex-1 flex justify-center transition-colors',
+              tab === 'saved' ? 'border-b-2 border-violet-500 text-violet-400' : 'text-gray-600'
+            )}
+            aria-label="Ver salvos"
+          >
             <Bookmark size={20} />
           </button>
         </div>
 
         {/* Grid / Empty */}
-        {posts.length === 0 ? (
+        {activePosts.length === 0 ? (
           <div className="px-6 py-10">
             <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 text-center">
-              <div className="text-sm font-extrabold text-white">Nenhuma publicação ainda</div>
+              <div className="text-sm font-extrabold text-white">
+                {tab === 'posts' ? 'Nenhuma publicação ainda' : 'Nenhum post salvo ainda'}
+              </div>
               <div className="mt-1 text-xs text-gray-400">
-                Toque no <span className="font-bold text-violet-300">+</span> no menu inferior para criar sua primeira.
+                {tab === 'posts'
+                  ? (
+                    <>
+                      Toque no <span className="font-bold text-violet-300">+</span> no menu inferior para criar sua primeira.
+                    </>
+                  )
+                  : 'Quando você salvar posts, eles aparecem aqui.'}
               </div>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-1">
-            {posts.map((p, i) => (
+            {activePosts.map((p, i) => (
               <button
-                key={p.id}
+                key={`${tab}:${p.id}`}
                 type="button"
                 onClick={() => openAt(i)}
                 className="aspect-square overflow-hidden group relative"
@@ -265,9 +412,9 @@ const Profile = () => {
       <ProfilePostModal
         open={openPost}
         onOpenChange={closeModal}
-        posts={posts}
+        posts={activePosts}
         initialIndex={activeIndex}
-        isOwner={true}
+        isOwner={modalIsOwner}
         onPostDeleted={onPostDeleted}
         onCaptionUpdated={onCaptionUpdated}
       />
