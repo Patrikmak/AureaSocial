@@ -30,7 +30,8 @@ export default function ChatFloatingButton({
       type="button"
       onClick={openMessages}
       className={cn(
-        "fixed bottom-28 right-4 z-50 flex items-center gap-3 rounded-full px-4 py-3",
+        "fixed bottom-24 right-4 z-50 flex items-center gap-3 rounded-full px-4 py-3",
+
         "bg-white/[0.06] backdrop-blur-xl border border-white/10",
         "shadow-[0_18px_50px_rgba(0,0,0,0.55)]",
         "outline-none",
