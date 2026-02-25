@@ -43,6 +43,8 @@ const Matches = () => {
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [activeOther, setActiveOther] = useState<ProfileRow | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatFusionKind, setChatFusionKind] = useState<"fusao" | "superfusao" | null>(null);
+  const [showFusionIntro, setShowFusionIntro] = useState(false);
 
   const you = useMemo(
     () => ({
@@ -210,6 +212,7 @@ const Matches = () => {
         const matchId = await createMatchIfNeeded(current.id);
         setActiveMatchId(matchId);
         setActiveOther(current.profile);
+        setChatFusionKind("fusao");
         setMatchOpen(true);
       }
 
@@ -217,6 +220,7 @@ const Matches = () => {
         const matchId = await createMatchIfNeeded(current.id);
         setActiveMatchId(matchId);
         setActiveOther(current.profile);
+        setChatFusionKind("superfusao");
         setSuperMatchOpen(true);
       }
 
@@ -224,11 +228,27 @@ const Matches = () => {
     }, 260);
   };
 
-  const startChat = () => {
+  const startChat = (kind?: "fusao" | "superfusao") => {
     setMatchOpen(false);
     setSuperMatchOpen(false);
+    setChatFusionKind(kind ?? chatFusionKind);
+    setShowFusionIntro(true);
     setChatOpen(true);
   };
+
+  useEffect(() => {
+    if (!matchOpen) return;
+    const t = window.setTimeout(() => startChat("fusao"), 650);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchOpen]);
+
+  useEffect(() => {
+    if (!superMatchOpen) return;
+    const t = window.setTimeout(() => startChat("superfusao"), 650);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [superMatchOpen]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32 overflow-hidden">
@@ -322,9 +342,14 @@ const Matches = () => {
       {/* Chat overlay (existing bottom sheet component) */}
       <MatchChatSheet
         open={chatOpen}
-        onOpenChange={setChatOpen}
+        onOpenChange={(next) => {
+          setChatOpen(next);
+          if (!next) setShowFusionIntro(false);
+        }}
         matchId={activeMatchId}
         otherUser={activeOther}
+        fusionKind={chatFusionKind}
+        showFusionIntro={showFusionIntro}
       />
 
       <MessagesLauncher />
