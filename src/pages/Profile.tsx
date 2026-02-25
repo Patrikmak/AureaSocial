@@ -8,10 +8,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import ProfilePostModal, { ProfilePost } from '@/components/profile/ProfilePostModal';
 
+function formatCompactCount(n: number) {
+  if (n >= 1_000_000) {
+    const v = (n / 1_000_000).toFixed(1).replace(/\.0$/, '');
+    return `${v}M`;
+  }
+  if (n >= 1_000) {
+    const v = (n / 1_000).toFixed(1).replace(/\.0$/, '');
+    return `${v}k`;
+  }
+  return `${n}`;
+}
+
 const Profile = () => {
   const { session } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<ProfilePost[]>([]);
+  const [farmsTotal, setFarmsTotal] = useState(0);
   const [openPost, setOpenPost] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [gridScrollY, setGridScrollY] = useState<number | null>(null);
@@ -32,6 +45,20 @@ const Profile = () => {
       .single();
 
     if (data) setProfile(data);
+  };
+
+  const fetchFarmsTotal = async (postIds: string[]) => {
+    if (!postIds.length) {
+      setFarmsTotal(0);
+      return;
+    }
+
+    const { count } = await supabase
+      .from('post_likes')
+      .select('id', { count: 'exact', head: true })
+      .in('post_id', postIds);
+
+    setFarmsTotal(count ?? 0);
   };
 
   const fetchPosts = async () => {
@@ -55,6 +82,7 @@ const Profile = () => {
     }));
 
     setPosts(mapped);
+    await fetchFarmsTotal((rows ?? []).map((p: any) => String(p.id)));
   };
 
   useEffect(() => {
@@ -75,16 +103,17 @@ const Profile = () => {
       };
 
       setPosts((rows ?? []).map((p: any) => ({ ...p, user })));
+      await fetchFarmsTotal((rows ?? []).map((p: any) => String(p.id)));
     })();
   }, [profile, session?.user]);
 
   const stats = useMemo(
     () => [
       { label: 'Posts', value: String(posts.length || 0) },
-      { label: 'Farms', value: '12.4k' },
+      { label: 'Farms', value: formatCompactCount(farmsTotal) },
       { label: 'Fusões', value: '452' },
     ],
-    [posts.length]
+    [posts.length, farmsTotal]
   );
 
   const openAt = (i: number) => {
@@ -102,7 +131,11 @@ const Profile = () => {
   };
 
   const onPostDeleted = (postId: string) => {
-    setPosts((p) => p.filter((x) => x.id !== postId));
+    setPosts((p) => {
+      const next = p.filter((x) => x.id !== postId);
+      fetchFarmsTotal(next.map((x) => x.id));
+      return next;
+    });
   };
 
   const onCaptionUpdated = (postId: string, caption: string | null) => {
