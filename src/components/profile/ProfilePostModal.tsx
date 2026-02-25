@@ -17,6 +17,7 @@ export type ProfilePost = {
   user_id: string;
   media_url: string;
   caption: string | null;
+  location?: string | null;
   created_at: string;
   user: {
     name: string;

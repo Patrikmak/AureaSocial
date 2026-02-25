@@ -21,6 +21,7 @@ const Profile = () => {
       fetchProfile();
       fetchPosts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   const fetchProfile = async () => {
@@ -33,43 +34,12 @@ const Profile = () => {
     if (data) setProfile(data);
   };
 
-  const seedIfEmpty = async () => {
-    if (!session?.user) return;
-    const { count } = await supabase
-      .from('posts')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', session.user.id);
-    if ((count ?? 0) > 0) return;
-
-    const gridImages = [
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800',
-      'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=800',
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800',
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800',
-    ];
-
-    await supabase.from('posts').insert(
-      gridImages.map((media_url, i) => ({
-        user_id: session.user.id,
-        media_url,
-        caption:
-          i % 2 === 0
-            ? 'Vivendo a melhor vibe de hoje ✨'
-            : 'Aurēa vibes — um dia de cada vez.'
-      }))
-    );
-  };
-
   const fetchPosts = async () => {
     if (!session?.user) return;
 
-    await seedIfEmpty();
-
     const { data: rows } = await supabase
       .from('posts')
-      .select('id,user_id,media_url,caption,created_at')
+      .select('id,user_id,media_url,caption,location,created_at')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false });
 
@@ -94,7 +64,7 @@ const Profile = () => {
     (async () => {
       const { data: rows } = await supabase
         .from('posts')
-        .select('id,user_id,media_url,caption,created_at')
+        .select('id,user_id,media_url,caption,location,created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
@@ -153,23 +123,24 @@ const Profile = () => {
         <div className="px-6 flex flex-col items-center text-center mb-8">
           <div className="relative mb-4">
             <div className="p-1 rounded-full bg-gradient-to-tr from-violet-600 to-cyan-400">
-              <img 
-                src={profile?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"} 
-                className="w-24 h-24 rounded-full object-cover border-4 border-black" 
-                alt="Profile" 
+              <img
+                src={profile?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400"}
+                className="w-24 h-24 rounded-full object-cover border-4 border-black"
+                alt="Profile"
               />
             </div>
-            <Link to="/edit-profile" className="absolute bottom-0 right-0 w-6 h-6 bg-violet-500 rounded-full border-4 border-black flex items-center justify-center">
+            <Link
+              to="/edit-profile"
+              className="absolute bottom-0 right-0 w-6 h-6 bg-violet-500 rounded-full border-4 border-black flex items-center justify-center"
+            >
               <span className="text-[10px] font-bold">+</span>
             </Link>
           </div>
-          
+
           <h2 className="text-2xl font-black mb-1">{profile?.first_name || 'Alex Rivera'}</h2>
-          
+
           {profile?.gender && (
-            <span className="text-[10px] uppercase tracking-widest text-violet-400 font-bold mb-2">
-              {profile.gender}
-            </span>
+            <span className="text-[10px] uppercase tracking-widest text-violet-400 font-bold mb-2">{profile.gender}</span>
           )}
 
           {profile?.location && (
@@ -178,7 +149,7 @@ const Profile = () => {
               <span>{profile.location}</span>
             </div>
           )}
-          
+
           <p className="text-sm text-gray-300 max-w-xs mb-4">
             {profile?.bio || 'Criando conexões reais através da arte e tecnologia. 🚀✨'}
           </p>
@@ -193,7 +164,13 @@ const Profile = () => {
           {profile?.links && profile.links.length > 0 && (
             <div className="flex flex-wrap justify-center gap-3 mb-6">
               {profile.links.map((link: string, i: number) => (
-                <a key={i} href={link} target="_blank" rel="noreferrer" className="text-gray-500 hover:text-white transition-colors">
+                <a
+                  key={i}
+                  href={link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gray-500 hover:text-white transition-colors"
+                >
                   <LinkIcon size={16} />
                 </a>
               ))}
@@ -201,7 +178,7 @@ const Profile = () => {
           )}
 
           <div className="flex gap-8 w-full justify-center border-y border-white/5 py-4">
-            {stats.map(stat => (
+            {stats.map((stat) => (
               <div key={stat.label} className="flex flex-col">
                 <span className="text-lg font-bold">{stat.value}</span>
                 <span className="text-[10px] text-gray-500 uppercase tracking-widest">{stat.label}</span>
@@ -220,21 +197,36 @@ const Profile = () => {
           </button>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-3 gap-1">
-          {posts.map((p, i) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => openAt(i)}
-              className="aspect-square overflow-hidden group relative"
-              aria-label="Abrir post"
-            >
-              <img src={p.media_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="" />
-              <div className="absolute inset-0 bg-violet-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          ))}
-        </div>
+        {/* Grid / Empty */}
+        {posts.length === 0 ? (
+          <div className="px-6 py-10">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 text-center">
+              <div className="text-sm font-extrabold text-white">Nenhuma publicação ainda</div>
+              <div className="mt-1 text-xs text-gray-400">
+                Toque no <span className="font-bold text-violet-300">+</span> no menu inferior para criar sua primeira.
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1">
+            {posts.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => openAt(i)}
+                className="aspect-square overflow-hidden group relative"
+                aria-label="Abrir post"
+              >
+                <img
+                  src={p.media_url}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  alt=""
+                />
+                <div className="absolute inset-0 bg-violet-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            ))}
+          </div>
+        )}
       </main>
 
       <ProfilePostModal
