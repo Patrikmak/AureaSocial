@@ -54,7 +54,7 @@ const Notifications = () => {
       navigate(`/post/${encodeURIComponent(notif.postId)}?comment=${encodeURIComponent(notif.commentId)}`);
       return;
     }
-    if (notif.type === 'match') {
+    if (notif.type === 'fusao') {
       // Open chat inside Descubra
       navigate(`/matches?chat=${encodeURIComponent(notif.user.username)}`);
       return;
@@ -98,7 +98,7 @@ const Notifications = () => {
 
               <div className="w-8 h-8 flex items-center justify-center">
                 {notif.type === 'like' && <Heart size={16} className="text-red-500" fill="currentColor" />}
-                {notif.type === 'match' && <UserPlus size={16} className="text-violet-500" />}
+                {notif.type === 'fusao' && <UserPlus size={16} className="text-violet-500" />}
                 {notif.type === 'comment' && <MessageSquare size={16} className="text-cyan-400" />}
               </div>
             </div>
