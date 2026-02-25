@@ -578,6 +578,7 @@ export default function VibesBar() {
                     <button
                       type="button"
                       onClick={closeViewer}
+                      onPointerDown={(e) => e.stopPropagation()}
                       className="p-2 rounded-full bg-white/10 hover:bg-white/15 active:scale-95 transition"
                       aria-label="Fechar"
                     >
@@ -587,7 +588,10 @@ export default function VibesBar() {
                 </div>
 
                 {/* Bottom UI: quick reply + reactions */}
-                <div className="absolute left-0 right-0 bottom-0 p-4 pb-5">
+                <div
+                  className="absolute left-0 right-0 bottom-0 p-4 pb-5"
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
                   <div className="flex items-center gap-2 mb-3">
                     {(["😍", "😂", "🔥", "✨", "👏"] as const).map((emo) => (
                       <button
@@ -643,9 +647,9 @@ export default function VibesBar() {
                   )}
                 </AnimatePresence>
 
-                {/* Navigation surface */}
+                {/* Navigation surface (doesn't cover header/bottom UI) */}
                 <div
-                  className="absolute inset-0"
+                  className="absolute inset-0 pt-24 pb-36"
                   onPointerDown={onPointerDown}
                   onPointerUp={onPointerUpOrCancel}
                   onPointerCancel={onPointerUpOrCancel}
