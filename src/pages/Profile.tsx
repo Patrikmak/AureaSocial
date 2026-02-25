@@ -1,19 +1,25 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import BottomNav from '@/components/layout/BottomNav';
 import { Settings as SettingsIcon, Grid, Bookmark, MapPin, Music, Link as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import ProfilePostModal, { ProfilePost } from '@/components/profile/ProfilePostModal';
 
 const Profile = () => {
   const { session } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<ProfilePost[]>([]);
+  const [openPost, setOpenPost] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [gridScrollY, setGridScrollY] = useState<number | null>(null);
 
   useEffect(() => {
     if (session?.user) {
       fetchProfile();
+      fetchPosts();
     }
   }, [session]);
 
@@ -23,25 +29,115 @@ const Profile = () => {
       .select('*')
       .eq('id', session?.user.id)
       .single();
-    
+
     if (data) setProfile(data);
   };
 
-  const stats = [
-    { label: 'Posts', value: '128' },
-    { label: 'Farms', value: '12.4k' },
-    { label: 'Fusões', value: '452' },
+  const seedIfEmpty = async () => {
+    if (!session?.user) return;
+    const { count } = await supabase
+      .from('posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', session.user.id);
+    if ((count ?? 0) > 0) return;
 
-  ];
+    const gridImages = [
+      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800',
+      'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=800',
+      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800',
+      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800',
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800',
+    ];
 
-  const gridImages = [
-    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400',
-    'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=400',
-    'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-  ];
+    await supabase.from('posts').insert(
+      gridImages.map((media_url, i) => ({
+        user_id: session.user.id,
+        media_url,
+        caption:
+          i % 2 === 0
+            ? 'Vivendo a melhor vibe de hoje ✨'
+            : 'Aurēa vibes — um dia de cada vez.'
+      }))
+    );
+  };
+
+  const fetchPosts = async () => {
+    if (!session?.user) return;
+
+    await seedIfEmpty();
+
+    const { data: rows } = await supabase
+      .from('posts')
+      .select('id,user_id,media_url,caption,created_at')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    const user = {
+      name: profile?.first_name || profile?.username || 'Você',
+      username: profile?.username || 'seu_perfil',
+      avatar_url: profile?.avatar_url ?? null,
+    };
+
+    const mapped: ProfilePost[] = (rows ?? []).map((p: any) => ({
+      ...p,
+      user,
+    }));
+
+    setPosts(mapped);
+  };
+
+  useEffect(() => {
+    // Refresh posts once we have profile data for the modal header
+    if (!session?.user) return;
+    if (!profile) return;
+    (async () => {
+      const { data: rows } = await supabase
+        .from('posts')
+        .select('id,user_id,media_url,caption,created_at')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      const user = {
+        name: profile?.first_name || profile?.username || 'Você',
+        username: profile?.username || 'seu_perfil',
+        avatar_url: profile?.avatar_url ?? null,
+      };
+
+      setPosts((rows ?? []).map((p: any) => ({ ...p, user })));
+    })();
+  }, [profile, session?.user]);
+
+  const stats = useMemo(
+    () => [
+      { label: 'Posts', value: String(posts.length || 0) },
+      { label: 'Farms', value: '12.4k' },
+      { label: 'Fusões', value: '452' },
+    ],
+    [posts.length]
+  );
+
+  const openAt = (i: number) => {
+    setGridScrollY(window.scrollY);
+    setActiveIndex(i);
+    setOpenPost(true);
+  };
+
+  const closeModal = (next: boolean) => {
+    setOpenPost(next);
+    if (!next && gridScrollY !== null) {
+      window.setTimeout(() => window.scrollTo({ top: gridScrollY, behavior: 'auto' }), 0);
+      setGridScrollY(null);
+    }
+  };
+
+  const onPostDeleted = (postId: string) => {
+    setPosts((p) => p.filter((x) => x.id !== postId));
+  };
+
+  const onCaptionUpdated = (postId: string, caption: string | null) => {
+    setPosts((p) => p.map((x) => (x.id === postId ? { ...x, caption } : x)));
+  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32">
@@ -126,14 +222,30 @@ const Profile = () => {
 
         {/* Grid */}
         <div className="grid grid-cols-3 gap-1">
-          {gridImages.map((img, i) => (
-            <div key={i} className="aspect-square overflow-hidden group relative">
-              <img src={img} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="" />
+          {posts.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => openAt(i)}
+              className="aspect-square overflow-hidden group relative"
+              aria-label="Abrir post"
+            >
+              <img src={p.media_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="" />
               <div className="absolute inset-0 bg-violet-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+            </button>
           ))}
         </div>
       </main>
+
+      <ProfilePostModal
+        open={openPost}
+        onOpenChange={closeModal}
+        posts={posts}
+        initialIndex={activeIndex}
+        isOwner={true}
+        onPostDeleted={onPostDeleted}
+        onCaptionUpdated={onCaptionUpdated}
+      />
 
       <BottomNav />
     </div>
