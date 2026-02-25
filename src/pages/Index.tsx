@@ -4,11 +4,14 @@ import React from 'react';
 import BottomNav from '@/components/layout/BottomNav';
 import VibesBar from '@/components/feed/VibesBar';
 import VibeCard from '@/components/feed/VibeCard';
+import ChatFloatingButton from '@/components/chat/ChatFloatingButton';
 
 import { Bell, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Index = () => {
+  const navigate = useNavigate();
+
   const posts = [
     {
       id: 1,
@@ -62,6 +65,16 @@ const Index = () => {
           ))}
         </div>
       </main>
+
+      <ChatFloatingButton
+        unreadCount={12}
+        avatars={[
+          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=100&fit=crop',
+          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
+        ]}
+        openMessages={() => navigate('/matches?chat=sophia')}
+      />
 
       <BottomNav />
     </div>
