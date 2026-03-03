@@ -5,6 +5,7 @@ import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal } from 'lucide-r
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { toast } from 'sonner';
 
 interface VibeCardProps {
   id: string | number;
@@ -44,6 +45,7 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
 
   const initialLikes = useMemo(() => parseCompactCount(likes), [likes]);
   const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [likesCount, setLikesCount] = useState(initialLikes);
   const [hydrated, setHydrated] = useState(false);
 
@@ -52,15 +54,15 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
 
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('post_likes')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('post_id', postId)
-        .maybeSingle();
+      // Busca status de curtida e salvamento simultaneamente
+      const [likeRes, saveRes] = await Promise.all([
+        supabase.from('post_likes').select('id').eq('user_id', session.user.id).eq('post_id', postId).maybeSingle(),
+        supabase.from('post_saves').select('id').eq('user_id', session.user.id).eq('post_id', postId).maybeSingle()
+      ]);
 
       if (cancelled) return;
-      setLiked(Boolean(data));
+      setLiked(Boolean(likeRes.data));
+      setSaved(Boolean(saveRes.data));
       setHydrated(true);
     })();
 
@@ -70,9 +72,11 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
   }, [session?.user, postId]);
 
   const toggleLike = async () => {
-    if (!session?.user) return;
+    if (!session?.user) {
+      toast.error("Faça login para curtir");
+      return;
+    }
 
-    // Optimistic UI
     const next = !liked;
     setLiked(next);
     setLikesCount((c) => c + (next ? 1 : -1));
@@ -82,25 +86,57 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
         user_id: session.user.id,
         post_id: postId,
       });
-
       if (error) {
-        // rollback
         setLiked(false);
         setLikesCount((c) => c - 1);
+        toast.error("Erro ao curtir");
       }
+    } else {
+      const { error } = await supabase
+        .from('post_likes')
+        .delete()
+        .eq('user_id', session.user.id)
+        .eq('post_id', postId);
+      if (error) {
+        setLiked(true);
+        setLikesCount((c) => c + 1);
+        toast.error("Erro ao descurtir");
+      }
+    }
+  };
+
+  const toggleSave = async () => {
+    if (!session?.user) {
+      toast.error("Faça login para salvar");
       return;
     }
 
-    const { error } = await supabase
-      .from('post_likes')
-      .delete()
-      .eq('user_id', session.user.id)
-      .eq('post_id', postId);
+    const next = !saved;
+    setSaved(next);
 
-    if (error) {
-      // rollback
-      setLiked(true);
-      setLikesCount((c) => c + 1);
+    if (next) {
+      const { error } = await supabase.from('post_saves').insert({
+        user_id: session.user.id,
+        post_id: postId,
+      });
+      if (error) {
+        setSaved(false);
+        toast.error("Erro ao salvar post");
+      } else {
+        toast.success("Post salvo nos seus favoritos!");
+      }
+    } else {
+      const { error } = await supabase
+        .from('post_saves')
+        .delete()
+        .eq('user_id', session.user.id)
+        .eq('post_id', postId);
+      if (error) {
+        setSaved(true);
+        toast.error("Erro ao remover dos salvos");
+      } else {
+        toast.success("Post removido dos salvos");
+      }
     }
   };
 
@@ -128,7 +164,7 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
         <img src={image} className="w-full h-full object-cover" alt="Post content" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
-        {/* Quick Action Overlay (Tinder Style) */}
+        {/* Quick Action Overlay */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0">
           <button
             onClick={toggleLike}
@@ -139,7 +175,6 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
             aria-label={liked ? 'Desfarmar' : 'Farmar'}
             disabled={!hydrated && Boolean(session?.user)}
           >
-
             <Heart size={24} fill={liked ? 'currentColor' : 'none'} />
           </button>
           <button className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-violet-500/20 hover:text-violet-300 transition-colors">
@@ -159,7 +194,6 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
                 (liked ? "text-rose-300" : "text-violet-300")
               }
               aria-label={liked ? 'Desfarmar' : 'Farmar'}
-
               disabled={!hydrated && Boolean(session?.user)}
             >
               <Heart size={24} fill={liked ? 'currentColor' : 'none'} />
@@ -167,7 +201,13 @@ const VibeCard = ({ id, user, image, caption, likes }: VibeCardProps) => {
             <MessageCircle className="text-gray-300 cursor-pointer hover:scale-110 transition-transform" size={24} />
             <Share2 className="text-gray-300 cursor-pointer hover:scale-110 transition-transform" size={24} />
           </div>
-          <Bookmark className="text-gray-300 cursor-pointer" size={24} />
+          <button 
+            onClick={toggleSave}
+            className={"transition-transform hover:scale-110 " + (saved ? "text-violet-400" : "text-gray-300")}
+            aria-label={saved ? "Remover dos salvos" : "Salvar post"}
+          >
+            <Bookmark size={24} fill={saved ? 'currentColor' : 'none'} />
+          </button>
         </div>
         <p className="text-sm text-white font-medium mb-1">{formatCompactCount(likesCount)} Farms</p>
 
